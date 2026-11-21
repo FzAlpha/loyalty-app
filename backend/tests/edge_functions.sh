@@ -58,6 +58,14 @@ echo "edge runtime OPTIONS status: $s"
 
 register() { call POST auth-register "$ANON_KEY" "{\"phone\":\"$1\",\"password\":\"$2\",\"full_name\":\"Test User\",\"date_of_birth\":\"1990-01-31\"}"; }
 signin() { call POST auth-sign-in "$ANON_KEY" "{\"phone\":\"$1\",\"password\":\"$2\"}"; }
+# Session revocation (plan §15 M2 exit): GoTrue status for an old refresh token / access token.
+refresh_status() { curl -s -o /dev/null -w '%{http_code}' -X POST "$API_URL/auth/v1/token?grant_type=refresh_token" \n  -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d "{\"refresh_token\":\"$1\"}"; }
+user_status() { curl -s -o /dev/null -w '%{http_code}' "$API_URL/auth/v1/user" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1"; }
+revoked() { # name refresh-token access-token
+  local a b; a=$(refresh_status "$2"); b=$(user_status "$3")
+  if [ -n "$2" ] && [ "$a" != 200 ] && [ "$b" != 200 ]; then echo "ok - $1 (refresh $a, /user $b)"
+  else echo "not ok - $1 (refresh $a, /user $b)"; fail=1; fi
+}
 
 # ---------------------------------------------------------------- shared handler
 check "GET is rejected" 405 METHOD_NOT_ALLOWED "$(call GET auth-register "$ANON_KEY")"
@@ -76,7 +84,7 @@ check "future date of birth rejected" 400 VALIDATION_FAILED \
 
 # ---------------------------------------------------------------- auth-sign-in
 r=$(signin "$pa" "$pwa"); check "customer signs in" 200 "$r"
-ta=$(field "$r" data.access_token)
+ta=$(field "$r" data.access_token); rta=$(field "$r" data.refresh_token)
 [ -n "$ua" ] && [ "$(field "$r" data.user_id)" = "$ua" ] && echo "ok - sign-in returns user id" || { echo "not ok - sign-in user id"; fail=1; }
 
 # Lockout on a separate customer: max_failures wrong passwords lock the phone.
@@ -107,6 +115,7 @@ npw=$(pw)
 recover() { call POST auth-recover "$ANON_KEY" "{\"phone\":\"$pa\",\"code\":\"$1\",\"new_password\":\"$2\"}"; }
 check "wrong recovery code rejected" 400 RECOVERY_CODE_INVALID "$(recover WRONG0000 "$npw")"
 check "recovery sets new password" 200 "$(recover "$code" "$npw")"
+revoked "recovery revokes old session" "$rta" "$ta"
 check "used code cannot be reused" 400 RECOVERY_CODE_INVALID "$(recover "$code" "$(pw)")"
 check "old password no longer works" 401 INVALID_CREDENTIALS "$(signin "$pa" "$pwa")"
 r=$(signin "$pa" "$npw"); check "new password works" 200 "$r"; ta=$(field "$r" data.access_token)
@@ -120,11 +129,12 @@ check "customer cannot manage staff" 403 FORBIDDEN "$(sa "$ta" "{\"action\":\"en
 pe=$(phone); pwe=$(pw)
 r=$(sa "$to" "{\"action\":\"create\",\"phone\":\"$pe\",\"temp_password\":\"$pwe\",\"display_name\":\"Exec\",\"role\":\"executive\",\"business_id\":\"$biz\"}")
 check "owner creates executive" 200 "$r"; ue=$(field "$r" data.user_id)
-check "executive signs in" 200 "$(signin "$pe" "$pwe")"
+r=$(signin "$pe" "$pwe"); check "executive signs in" 200 "$r"; tea=$(field "$r" data.access_token); ter=$(field "$r" data.refresh_token)
 check "duplicate staff phone is PHONE_TAKEN" 409 PHONE_TAKEN \
   "$(sa "$to" "{\"action\":\"create\",\"phone\":\"$pe\",\"temp_password\":\"$(pw)\",\"display_name\":\"Dup\",\"role\":\"executive\",\"business_id\":\"$biz\"}")"
 check "owner disables executive" 200 "$(sa "$to" "{\"action\":\"disable\",\"user_id\":\"$ue\"}")"
 check "disabled executive cannot sign in" 403 FORBIDDEN "$(signin "$pe" "$pwe")"
+revoked "disable revokes executive session" "$ter" "$tea"
 check "owner enables executive" 200 "$(sa "$to" "{\"action\":\"enable\",\"user_id\":\"$ue\"}")"
 check "re-enabled executive signs in" 200 "$(signin "$pe" "$pwe")"
 npe=$(pw)
