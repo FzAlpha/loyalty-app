@@ -70,10 +70,7 @@ jobs:
 
       - name: Auth config diagnostics (informational)
         continue-on-error: true
-        run: |
-          { curl -s "$API_URL/auth/v1/settings" -H "apikey: $ANON_KEY"; echo;
-            c=$(docker ps --format '{{.Names}}' | grep -m1 supabase_auth);
-            docker inspect "$c" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E 'PHONE|SMS|HOOK' | sed -E 's/(SECRET|TOKEN|KEY)=.*/=***/'; } 2>&1 | tee /tmp/ci/authdiag.log
+        run: bash tests/auth_diag.sh 2>&1 | tee /tmp/ci/authdiag.log
 
       - name: Auth end-to-end (backend/tests)
         run: bash tests/auth_phone_release.sh 2>&1 | tee /tmp/ci/e2e.log
