@@ -93,7 +93,14 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] api.scan_card / approve_card (records passed identity check) / reject_card
   - [x] Realtime on card_assignments
   - [x] pgTAP: 20 M4 checks in 40_cards (CI green)
-- [ ] M5–6 Offers
+- [x] M5–6 Offers (group data file + membership RPC pending)
+  - [x] 50_offers tables, RLS, grants, audit triggers
+  - [x] private.evaluate_offer (§6.1 order) + api.list_eligible_offers
+  - [x] api.upsert_offer / set_offer_status
+  - [x] Storage buckets (from settings) + storage.objects write policies
+  - [x] pgTAP 50_offers: 25-case eligibility table + CRUD/RLS/storage (CI green)
+  - [ ] customer_groups data file + group membership management RPC (not in plan yet)
+  - [ ] Storage upload over HTTP not tested
 - [ ] M7 Claims & redemption
 - [ ] M8 Reporting & audit
 - [ ] M9–10 Hardening & release

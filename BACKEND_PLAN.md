@@ -303,7 +303,7 @@ Every RPC: `SECURITY DEFINER`, `SET search_path = ''`, validates input, calls `r
 | `api.preview_claim(qr_payload)` | RPC (staff) | Returns a safe preview plus flags: `EXPIRED`, `USED`, `WRONG_BUSINESS`, `NOT_ELIGIBLE`. Does not consume the token |
 | `api.redeem_claim(qr_payload, idempotency_key, bill_number?, bill_amount?)` | RPC (staff) | See §8: atomic, locked and idempotent |
 | `api.block_card` / `api.reissue_card` | RPC | Owner permissions; reissue revokes the old assignment and links the new card (approval required or not, per setting) |
-| `api.upsert_offer`, `api.set_offer_status` | RPC | `offer.manage` scoped to the offer's business |
+| `api.upsert_offer(offer jsonb)`, `api.set_offer_status(offer_id, status)` | RPC | `offer.manage` scoped to the offer's business. Upsert takes the full offer plus optional `schedules[]` / `group_ids[]` (omitted = unchanged); new offers are `draft`; `archived` is final |
 | `api.update_business` | RPC | `business.manage` |
 | `api.set_setting(key, value, business_id?)` | RPC | `settings.manage`; validates against `value_schema` |
 | `staff-admin` (create / reassign / enable / disable / reset credential) | Edge Fn | Owner only; Auth Admin API (`createUser`, `updateUserById`). Reset sets a temporary password and `staff.must_change_password=true` (app forces a change on next sign-in). Disable sets `staff.is_active=false`, applies an Auth ban (`updateUserById` + `ban_duration`) and revokes sessions; then calls the staff RPC for DB changes and audit |
