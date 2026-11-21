@@ -21,6 +21,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [ ] M0: delete spike project after tests
 
 ## Decisions
+- 2026-11-21: CI-only dummy Twilio block enables local phone login (runner copy only; hook refuses SMS)
 - 2026-11-18: Folder structure approved (plan §1); dashboard = frontend/dashboard
 - 2026-11-18: Supabase Free plan for now; no Team/Enterprise features
 - 2026-11-18: No SMS at all (no OTP, no SMS recovery, no provider, no DLT); phone + password kept
@@ -76,7 +77,8 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] Edge Functions: auth-register, auth-sign-in, auth-recover, staff-admin + _shared
   - [ ] Edge Function HTTP tests
   - [x] ratelimit.* values seeded
-  - [x] Phone release frees auth.users.phone (direct auth write, GoTrue e2e test in CI)
+  - [~] Phone release frees auth.users.phone (pgTAP green; GoTrue e2e blocked)
+  - [~] Local phone login via CI-only dummy Twilio block
 - [ ] M3 Cards
 - [ ] M4 Approval
 - [ ] M5–6 Offers

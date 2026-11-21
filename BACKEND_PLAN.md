@@ -581,6 +581,7 @@ Figures come from 2026 third-party summaries, not from Supabase directly:
 - Disabled staff are banned with a long `ban_duration` (Auth has no permanent flag) plus `staff.is_active = false` and session revocation.
 - In `auth-recover` the code is spent before the password update; if the update fails, staff must issue a new code.
 - Edge Functions are type-checked in CI only; no end-to-end HTTP tests yet.
+- Local stack (CLI v3.2.0) disables phone login unless an `[auth.sms.<provider>]` block is enabled; the send_sms hook does not count. So local phone + password sign-in is off and the GoTrue e2e sign-in checks fail. Hosted is unaffected (M0). CI enables a Twilio block with fake values in the runner copy only (approved 2026-11-21); the send_sms hook still refuses all SMS. The tracked config.toml keeps Twilio off, so local dev outside CI has no phone login.
 
 ### 17.4 pnpm workspaces
 - Adds `pnpm-workspace.yaml`, root `package.json` (scripts only) and `.npmrc` (§1).

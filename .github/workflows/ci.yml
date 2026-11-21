@@ -46,6 +46,21 @@ jobs:
       - name: Ensure psql
         run: command -v psql || (sudo apt-get update && sudo apt-get install -y postgresql-client)
 
+      - name: CI-only dummy SMS provider (approved 2026-11-21)
+        # CLI v3.2.0 disables phone login unless an SMS provider block is enabled. Turn on the
+        # Twilio block with fake values in the runner's copy only (never committed, never pushed to
+        # hosted). The send_sms hook refuses every SMS, and the e2e test sends none.
+        run: |
+          python3 - <<'EOF'
+          p = "supabase/config.toml"
+          s = open(p).read()
+          old = '[auth.sms.twilio]\nenabled = false\naccount_sid = ""\nmessage_service_sid = ""\n'
+          new = '[auth.sms.twilio]\nenabled = true\naccount_sid = "ci-dummy"\nmessage_service_sid = "ci-dummy"\n'
+          assert old in s, "twilio block not found"
+          open(p, "w").write(s.replace(old, new, 1))
+          EOF
+          echo "SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN=ci-dummy-not-a-secret" >> "$GITHUB_ENV"
+
       - name: Start local Supabase
         # PostgREST exposes the api schema, which db:apply creates after start; it retries until then.
         run: mkdir -p /tmp/ci && supabase start --ignore-health-check 2>&1 | tee /tmp/ci/start.log

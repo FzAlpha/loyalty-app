@@ -267,9 +267,10 @@ otp_expiry = 3600
 # To block new signups only, set enable_signup = false under [auth] instead.
 # Phone provider on for phone + password sign-in (plan §7.1). No SMS provider is configured.
 enabled = true
-# CLI v3.2.0 `supabase start` sets GOTRUE_EXTERNAL_PHONE_ENABLED from this deprecated key, not
-# `enabled` (apps/cli/src/commands/start/services/gotrue.service.ts). Global signups stay off via
-# [auth] enable_signup = false. No SMS provider is enabled.
+# Local stack note: CLI v3.2.0 `supabase start` turns phone login OFF when no [auth.sms.<provider>]
+# block is enabled (start.handler.ts resolveAuthSms; the send_sms hook does not count), so local
+# phone + password sign-in is off here; CI turns on a dummy Twilio block in its copy (ci.yml).
+# Global signups stay off via [auth] enable_signup = false.
 enable_signup = true
 # If enabled, users need to confirm their phone number before signing in.
 enable_confirmations = false
