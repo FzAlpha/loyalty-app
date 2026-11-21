@@ -571,7 +571,7 @@ Figures come from 2026 third-party summaries, not from Supabase directly:
 - Phone reassignment needs two different people (executive + owner), which limits single-insider abuse but adds an owner step for every release.
 - Supabase may internally mark the phone as "confirmed" so login works; that flag is ignored for any trust decision.
 
-- **M2 (open): release does not free `auth.users.phone`.** Approving a phone release disables the old profile, but the Auth user keeps the phone, so the new holder cannot register and the old holder can still sign in at Auth level. Fix needs an Edge Function step (Admin `updateUserById` to clear/ban the old user); not built yet.
+- **Phone release frees the Auth phone (M2):** on approve, `private.release_auth_phone` clears `auth.users.phone`, removes the phone identity, bans the old user (100 years) and revokes its sessions in the same transaction. This writes `auth.*` tables directly (not the Admin API), which Supabase does not document as supported; `backend/tests/auth_phone_release.sh` checks it against GoTrue in CI and must keep passing on CLI/Auth upgrades.
 - **M2 (open): release does not check active cards** yet; added with the cards module (M3).
 
 ### 17.8 M2 auth limitations (as built)

@@ -332,6 +332,25 @@ $$;
 
 -- Approve: the holder account is disabled and its profile phone cleared. Freeing the number in
 -- auth.users is done by the account-deletion path (Auth Admin API), see plan §7.4 / §17.3.
+-- Frees a released phone in Supabase Auth so the real holder can register it (§7.5). Runs inside
+-- decide_phone_release so the decision and the Auth change commit together. Writes auth.* directly,
+-- like session revocation; verified against GoTrue by backend/tests/auth_phone_release.sh.
+-- banned_until is a finite date: GoTrue cannot read 'infinity'.
+create or replace function private.release_auth_phone(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update auth.users
+  set phone = null, phone_confirmed_at = null, banned_until = now() + interval '100 years'
+  where id = p_user_id;
+  delete from auth.identities where user_id = p_user_id and provider = 'phone';
+  perform private.revoke_user_sessions(p_user_id);
+end;
+$$;
+
 create or replace function api.decide_phone_release(p_request_id uuid, p_approve boolean, p_note text default null)
 returns public.phone_release_status
 language plpgsql
@@ -363,6 +382,7 @@ begin
   where id = p_request_id;
   if p_approve then
     update public.profiles set account_status = 'disabled', phone_e164 = null where id = v_req.holder_customer_id;
+    perform private.release_auth_phone(v_req.holder_customer_id);
   end if;
   return v_status;
 end;

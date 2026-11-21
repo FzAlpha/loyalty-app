@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(31);
+select plan(32);
 
 -- fixtures
 insert into public.businesses (id, slug, name) values
@@ -78,6 +78,8 @@ select ok(private.can('staff.manage', null), 'owner has staff.manage');
 select is(api.decide_phone_release((select id from t_req), true, 'ok'), 'approved'::public.phone_release_status, 'owner approves');
 select is((select account_status::text || ':' || coalesce(phone_e164, 'null') from public.profiles where id = 'c2000000-0000-0000-0000-0000000000c2'),
   'disabled:null', 'holder disabled and phone freed in profiles');
+select ok((select phone is null and banned_until > now() from auth.users where id = 'c2000000-0000-0000-0000-0000000000c2'),
+  'holder phone freed and banned in auth.users');
 
 -- RLS read side: customer sees only own profile
 set local request.jwt.claims = '{"sub":"c0000000-0000-0000-0000-00000000000c","role":"authenticated","session_id":"5c000000-0000-0000-0000-00000000000c"}';

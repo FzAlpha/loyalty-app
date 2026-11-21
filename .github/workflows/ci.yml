@@ -68,6 +68,9 @@ jobs:
       - name: pgTAP tests (database/tests)
         run: npm run db:test 2>&1 | tee /tmp/ci/test.log
 
+      - name: Auth end-to-end (backend/tests)
+        run: bash tests/auth_phone_release.sh 2>&1 | tee /tmp/ci/e2e.log
+
       - name: Probe declarative schema wiring (M0, informational)
         continue-on-error: true
         run: timeout 300 supabase db schema declarative sync < /dev/null 2>&1 | tee /tmp/ci/probe.log

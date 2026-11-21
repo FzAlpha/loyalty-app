@@ -76,7 +76,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] Edge Functions: auth-register, auth-sign-in, auth-recover, staff-admin + _shared
   - [ ] Edge Function HTTP tests
   - [x] ratelimit.* values seeded
-  - [ ] Phone release: free auth.users.phone via Admin API
+  - [x] Phone release frees auth.users.phone (direct auth write, GoTrue e2e test in CI)
 - [ ] M3 Cards
 - [ ] M4 Approval
 - [ ] M5–6 Offers
