@@ -89,10 +89,10 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] api.link_card (double-link guard, staff refused, membership → pending)
   - [x] phone release blocked while card pending/active
   - [ ] tools/card-generator (print sheets from CSV)
-- [~] M4 Approval
-  - [~] api.scan_card / approve_card (records passed identity check) / reject_card
-  - [~] Realtime on card_assignments
-  - [~] pgTAP: 20 M4 checks in 40_cards (CI pending)
+- [x] M4 Approval
+  - [x] api.scan_card / approve_card (records passed identity check) / reject_card
+  - [x] Realtime on card_assignments
+  - [x] pgTAP: 20 M4 checks in 40_cards (CI green)
 - [ ] M5–6 Offers
 - [ ] M7 Claims & redemption
 - [ ] M8 Reporting & audit
