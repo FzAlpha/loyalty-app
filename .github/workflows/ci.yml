@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
+        shell: bash  # explicit shell enables -o pipefail, so tee no longer masks failures
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
@@ -25,13 +26,21 @@ jobs:
         run: command -v psql || (sudo apt-get update && sudo apt-get install -y postgresql-client)
 
       - name: Start local Supabase
-        run: mkdir -p /tmp/ci && supabase start 2>&1 | tee /tmp/ci/start.log
+        # PostgREST exposes the api schema, which db:apply creates after start; it retries until then.
+        run: mkdir -p /tmp/ci && supabase start --ignore-health-check 2>&1 | tee /tmp/ci/start.log
 
       - name: Export local connection env
-        run: supabase status -o env | grep -E '^[A-Z_]+=' | sed 's/"//g' >> "$GITHUB_ENV"
+        run: |
+          supabase status -o env | grep -E '^[A-Z_]+=' | sed 's/"//g' > /tmp/ci/status.env
+          echo "status vars: $(cut -d= -f1 /tmp/ci/status.env | tr '
+' ' ')" | tee /tmp/ci/status.log
+          grep -q '^DB_URL=.' /tmp/ci/status.env || { echo "DB_URL missing from supabase status" | tee -a /tmp/ci/status.log; exit 1; }
+          cat /tmp/ci/status.env >> "$GITHUB_ENV"
 
       - name: Apply schema (database/schema)
-        run: npm run db:apply 2>&1 | tee /tmp/ci/apply.log
+        run: |
+          npm run db:apply 2>&1 | tee /tmp/ci/apply.log
+          psql "$DB_URL" -X -q -c "notify pgrst, 'reload schema'"
 
       - name: Seed reference data
         run: npm run db:seed 2>&1 | tee /tmp/ci/seed.log
