@@ -62,7 +62,6 @@ jobs:
         run: |
           for f in /tmp/ci/*.log; do
             [ -f "$f" ] || continue
-            msg=$(tail -n 60 "$f" | sed -e 's/%/%25/g' | sed -e ':a;N;$!ba;s/
-/%0A/g')
+            msg=$(tail -n 60 "$f" | awk '{ gsub(/%/, "%25"); gsub(/\r/, ""); printf "%s%%0A", $0 }')
             echo "::notice title=$(basename "$f")::$msg"
           done
