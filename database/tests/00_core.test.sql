@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(20);
+select plan(21);
 
 -- structure + deny-by-default
 select has_table('public', 'app_settings', 'app_settings exists');
@@ -12,6 +12,7 @@ select is((select count(*)::int from pg_policies where schemaname = 'public' and
 select ok(not has_table_privilege('anon', 'public.app_settings', 'select'), 'anon cannot read app_settings');
 select ok(not has_table_privilege('authenticated', 'public.app_settings', 'insert,update,delete'), 'authenticated cannot write app_settings');
 select ok(not has_schema_privilege('authenticated', 'private', 'usage'), 'authenticated has no usage on private');
+select ok(has_schema_privilege('service_role', 'api', 'usage'), 'service_role can reach api (Edge Functions)');
 select ok(not has_function_privilege('authenticated', 'private.get_setting(text,uuid)', 'execute'), 'authenticated cannot call get_setting');
 
 -- settings lookup

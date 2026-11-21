@@ -77,7 +77,7 @@ check "future date of birth rejected" 400 VALIDATION_FAILED \
 # ---------------------------------------------------------------- auth-sign-in
 r=$(signin "$pa" "$pwa"); check "customer signs in" 200 "$r"
 ta=$(field "$r" data.access_token)
-[ "$(field "$r" data.user_id)" = "$ua" ] && echo "ok - sign-in returns user id" || { echo "not ok - sign-in user id"; fail=1; }
+[ -n "$ua" ] && [ "$(field "$r" data.user_id)" = "$ua" ] && echo "ok - sign-in returns user id" || { echo "not ok - sign-in user id"; fail=1; }
 
 # Lockout on a separate customer: max_failures wrong passwords lock the phone.
 pb=$(phone); pwb=$(pw); register "$pb" "$pwb" >/dev/null

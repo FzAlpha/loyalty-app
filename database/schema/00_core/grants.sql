@@ -1,6 +1,6 @@
 -- Internal schemas are never reachable from the API roles.
 revoke all on schema private, audit, ops from public, anon, authenticated;
-grant usage on schema api to anon, authenticated;
+grant usage on schema api to anon, authenticated, service_role;  -- service_role: Edge Functions call api.svc_*
 
 -- New objects get no implicit privileges (each module grants explicitly).
 alter default privileges in schema public revoke all on tables from anon, authenticated;
