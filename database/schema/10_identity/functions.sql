@@ -286,17 +286,45 @@ $$;
 
 -- ---------------------------------------------------------------- phone release (§7.4)
 
--- Allowed only when the holder has no passed identity check and no active membership/card.
--- Membership 'active' is set only by card approval, so it stands for "has an active card".
+-- Allowed only when the holder has no passed identity check, no active membership and no
+-- pending/active card. plpgsql so the 40_cards function is resolved at call time.
 create or replace function private.phone_release_allowed(p_holder uuid)
 returns boolean
-language sql
+language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
-  select not private.has_passed_identity_check(p_holder)
-     and exists (select 1 from public.profiles where id = p_holder and membership_status <> 'active');
+begin
+  return not private.has_passed_identity_check(p_holder)
+     and exists (select 1 from public.profiles where id = p_holder and membership_status <> 'active')
+     and not private.customer_has_live_card(p_holder);
+end;
+$$;
+
+-- ---------------------------------------------------------------- membership (used by 40_cards)
+create or replace function private.set_membership_status(p_customer_id uuid, p_status public.membership_status)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  update public.profiles set membership_status = p_status where id = p_customer_id;
+$$;
+
+-- Active customer account (not staff) whose membership allows linking a card.
+create or replace function private.customer_can_link(p_uid uuid)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  return exists (select 1 from public.profiles
+                 where id = p_uid and account_status = 'active' and membership_status in ('none', 'rejected'))
+     and not private.is_staff(p_uid);
+end;
 $$;
 
 create or replace function api.request_phone_release(p_phone_e164 text, p_business_id uuid, p_reason text)

@@ -59,7 +59,8 @@ echo "edge runtime OPTIONS status: $s"
 register() { call POST auth-register "$ANON_KEY" "{\"phone\":\"$1\",\"password\":\"$2\",\"full_name\":\"Test User\",\"date_of_birth\":\"1990-01-31\"}"; }
 signin() { call POST auth-sign-in "$ANON_KEY" "{\"phone\":\"$1\",\"password\":\"$2\"}"; }
 # Session revocation (plan §15 M2 exit): GoTrue status for an old refresh token / access token.
-refresh_status() { curl -s -o /dev/null -w '%{http_code}' -X POST "$API_URL/auth/v1/token?grant_type=refresh_token" \n  -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d "{\"refresh_token\":\"$1\"}"; }
+refresh_status() { curl -s -o /dev/null -w '%{http_code}' -X POST "$API_URL/auth/v1/token?grant_type=refresh_token" \
+  -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d "{\"refresh_token\":\"$1\"}"; }
 user_status() { curl -s -o /dev/null -w '%{http_code}' "$API_URL/auth/v1/user" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1"; }
 revoked() { # name refresh-token access-token
   local a b; a=$(refresh_status "$2"); b=$(user_status "$3")
@@ -142,5 +143,13 @@ check "owner resets executive password" 200 "$(sa "$to" "{\"action\":\"reset_pas
 check "old temp password fails" 401 INVALID_CREDENTIALS "$(signin "$pe" "$pwe")"
 check "new temp password works" 200 "$(signin "$pe" "$npe")"
 check "owner cannot disable self" 400 VALIDATION_FAILED "$(sa "$to" "{\"action\":\"disable\",\"user_id\":\"$uo\"}")"
+
+# ---------------------------------------------------------------- card-batches + link_card (M3)
+check "customer cannot create batch" 403 FORBIDDEN "$(call POST card-batches "$ta" '{"label":"x","quantity":1}')"
+r=$(call POST card-batches "$to" '{"label":"Fn batch","quantity":2}'); check "owner creates batch" 200 "$r"
+[ "$(field "$r" data.count)" = 2 ] && echo "ok - batch returns 2 cards" || { echo "not ok - batch count ($r)"; fail=1; }
+qr=$(python3 -c 'import sys,json; print(json.loads(sys.argv[1].split(" ",1)[1])["data"]["cards"][0]["qr_payload"])' "$r" 2>/dev/null || true)
+link() { curl -s -o /tmp/fn.json -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/link_card" -H "apikey: $ANON_KEY"   -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -H 'Content-Profile: api' -d "{\"p_qr_payload\":\"$2\"}"; echo " $(cat /tmp/fn.json)"; }
+r=$(link "$ta" "$qr"); [ "${r%% *}" = 200 ] && [ "$(python3 -c 'import sys,json; print(json.loads(sys.argv[1].split(" ",1)[1])["status"])' "$r" 2>/dev/null)" = pending ]   && echo "ok - customer links card over PostgREST" || { echo "not ok - link card ($r)"; fail=1; }
 
 exit $fail

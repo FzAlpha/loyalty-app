@@ -31,3 +31,14 @@ create trigger audit_row after insert or update or delete on public.businesses
 drop trigger if exists audit_row on public.role_permissions;
 create trigger audit_row after insert or update or delete on public.role_permissions
   for each row execute function audit.log_row_change();
+
+-- M3 (40_cards).
+drop trigger if exists audit_row on public.cards;
+create trigger audit_row after insert or update or delete on public.cards
+  for each row execute function audit.log_row_change();
+drop trigger if exists audit_row on public.card_assignments;
+create trigger audit_row after insert or update or delete on public.card_assignments
+  for each row execute function audit.log_row_change('decision_business_id');
+drop trigger if exists audit_row on public.card_batches;
+create trigger audit_row after insert or update or delete on public.card_batches
+  for each row execute function audit.log_row_change();

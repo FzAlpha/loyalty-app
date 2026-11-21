@@ -14,6 +14,17 @@ as $$
     true);
 $$;
 
+-- Staff accounts (active or not) cannot act as customers (e.g. link a card, 40_cards).
+create or replace function private.is_staff(p_uid uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.staff where user_id = p_uid);
+$$;
+
 -- Service-role only (staff-admin). The Edge Function creates/updates the auth user with the
 -- Auth Admin API first, then calls this for the database side. p_actor_id comes from the
 -- caller's verified JWT and is re-checked here.

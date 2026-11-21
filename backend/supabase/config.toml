@@ -451,3 +451,7 @@ verify_jwt = false
 # staff-admin keeps the gateway JWT check and also verifies the caller and staff.manage inside.
 [functions.staff-admin]
 verify_jwt = true
+
+# card-batches: gateway JWT check; create_card_batch checks card.batch.create as the caller.
+[functions.card-batches]
+verify_jwt = true

@@ -14,6 +14,7 @@ insert into public.app_settings (key, value, value_schema, description) values
   ('cards.number_prefix',             '"GR"',             '{"type":"string","pattern":"^[A-Z]+$"}', 'Printed card number prefix'),
   ('cards.number_digits',             '6',                '{"type":"integer","minimum":1}', 'Digits in printed card number'),
   ('cards.reissue_requires_approval', 'false',            '{"type":"boolean"}', 'Card reissue needs owner approval'),
+  ('cards.batch_max_quantity',        '5000',             '{"type":"integer","minimum":1}', 'Max cards per batch request'),
   ('auth.lockout.max_failures',       '5',                '{"type":"integer","minimum":1}', 'Failed sign-ins before lockout'),
   ('auth.lockout.window_seconds',     '900',              '{"type":"integer","minimum":1}', 'Window for counting failed sign-ins'),
   ('auth.lockout.lock_seconds',       '900',              '{"type":"integer","minimum":1}', 'Lockout duration'),
@@ -39,6 +40,7 @@ insert into public.app_settings (key, value, value_schema, description) values
   ('ratelimit.recover_ip', '{"capacity":10,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Recovery attempts per client IP'),
   ('ratelimit.recover_phone', '{"capacity":5,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Recovery attempts per phone'),
   ('ratelimit.recovery_issue', '{"capacity":20,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Recovery codes issued per staff member'),
+  ('ratelimit.card_link', '{"capacity":10,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Recovery codes issued per staff member'),
   ('offers.cross_business_enabled',   'false',            '{"type":"boolean"}', 'Phase-2 switch for cross-business offers')
 on conflict (key, coalesce(scope_business_id, '00000000-0000-0000-0000-000000000000'::uuid)) do update
   set value_schema = excluded.value_schema,
