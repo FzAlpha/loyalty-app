@@ -18,7 +18,14 @@ call() {
     -H "apikey: $ANON_KEY" -H "Authorization: Bearer $3" -H 'Content-Type: application/json' ${4:+-d "$4"}
   echo " $(cat /tmp/fn.json)"
 }
-field() { python3 -c 'import sys,json; d=json.loads(sys.argv[1].split(" ",1)[1]); [d:=d[k] for k in sys.argv[2].split(".")]; print(d)' "$1" "$2"; }
+field() { python3 -c '
+import sys,json
+try:
+    d=json.loads(sys.argv[1].split(" ",1)[1])
+    for k in sys.argv[2].split("."): d=d[k]
+    print(d)
+except Exception:
+    print("")' "$1" "$2"; }
 # check NAME STATUS [ERROR_CODE] LINE
 check() {
   local name=$1 want=$2 code=${4:+$3} line=${4:-$3} got
@@ -29,6 +36,18 @@ check() {
     echo "not ok - $name (want $want${code:+ $code}, got $line)"; fail=1
   fi
 }
+
+# Wait for PostgREST's schema cache (functions read public.error_codes through it). The api schema
+# is created after `supabase start`, so ask PostgREST to reload until it serves both schemas.
+for i in $(seq 1 30); do
+  psql "$DB_URL" -X -q -c "notify pgrst, 'reload schema'" >/dev/null 2>&1 || true
+  a=$(curl -s -o /dev/null -w '%{http_code}' "$API_URL/rest/v1/error_codes?select=code&limit=1" \
+    -H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY" || true)
+  b=$(curl -s -o /dev/null -w '%{http_code}' "$API_URL/rest/v1/" -H "Accept-Profile: api" \
+    -H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY" || true)
+  [ "$a" = 200 ] && [ "$b" = 200 ] && break; sleep 2
+done
+echo "postgrest error_codes status: $a, api schema status: $b"
 
 # Wait for the edge runtime (first request boots the worker).
 for i in $(seq 1 30); do
