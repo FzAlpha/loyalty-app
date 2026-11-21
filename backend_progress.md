@@ -33,6 +33,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - 2026-11-18: Retention (provisional, not legal): claims 90d, login attempts 30d, deleted accts 30d, audit 2y
 - 2026-11-18: Retention (provisional, not legal): unchecked accts 30d, recovery codes 30d, rate counters 30d, backups 30d
 - 2026-11-18: M0 tests approved: no-SMS signup, IP limits via Edge Fn, Expo+pnpm
+- 2026-11-21: Rate limits: register 10/h IP, sign-in 60/10m IP + 10/10m phone, recover 10/h IP + 5/h phone, issue 20/h staff
 - 2026-11-21: M0 signed off; Sb-Forwarded-For retest, Expo native build, backups, staging deferred
 - 2026-11-18: Encrypted nightly backups to client-owned external storage; periodic restore tests
 - 2026-11-18: QR GR.C.1 / GR.Q.1; old formats still accepted; card no. GR-000001
@@ -74,7 +75,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] Roles/permissions seed; audit triggers; pgTAP 10_identity + 85_security (CI green)
   - [x] Edge Functions: auth-register, auth-sign-in, auth-recover, staff-admin + _shared
   - [ ] Edge Function HTTP tests
-  - [!] ratelimit.* values — need user decision
+  - [x] ratelimit.* values seeded
   - [ ] Phone release: free auth.users.phone via Admin API
 - [ ] M3 Cards
 - [ ] M4 Approval

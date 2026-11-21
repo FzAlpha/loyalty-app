@@ -577,7 +577,7 @@ Figures come from 2026 third-party summaries, not from Supabase directly:
 ### 17.8 M2 auth limitations (as built)
 - Lockout and rate limits run in `auth-sign-in`; direct calls to Supabase Auth `/token` with the anon key bypass them (only Auth's built-in IP limits apply).
 - Client IP comes from the first `X-Forwarded-For` entry; whether the Edge runtime passes the real client IP is unverified (Sb-Forwarded-For retest deferred). Until verified, per-IP limits may group users.
-- `ratelimit.*` settings (`register`, `sign_in_ip`, `sign_in_phone`, `recover_ip`, `recover_phone`, `recovery_issue`) are not seeded; the functions fail closed with SETTING_NOT_FOUND until values are chosen.
+- `ratelimit.*` settings (`register`, `sign_in_ip`, `sign_in_phone`, `recover_ip`, `recover_phone`, `recovery_issue`) are seeded with defaults approved 2026-11-21. If the client IP is not forwarded, all users share one IP and `sign_in_ip` (60/10 min) caps the whole app; revisit after the Sb-Forwarded-For retest.
 - Disabled staff are banned with a long `ban_duration` (Auth has no permanent flag) plus `staff.is_active = false` and session revocation.
 - In `auth-recover` the code is spent before the password update; if the update fails, staff must issue a new code.
 - Edge Functions are type-checked in CI only; no end-to-end HTTP tests yet.

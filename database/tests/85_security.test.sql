@@ -16,10 +16,11 @@ insert into auth.sessions (id, user_id) values
   ('5e000000-0000-0000-0000-00000000000e', 'e0000000-0000-0000-0000-00000000000e'),
   ('5c000000-0000-0000-0000-00000000000c', 'c0000000-0000-0000-0000-00000000000c'),
   ('5c000000-0000-0000-0000-0000000000c2', 'c0000000-0000-0000-0000-00000000000c');
--- Rate limit values are not decided yet; test-only values.
+-- Test-only bucket; recovery_issue raised so the seeded limit does not interfere (rolled back).
 insert into public.app_settings (key, value, value_schema, description) values
-  ('ratelimit.test', '{"capacity":2,"per_seconds":3600}', '{"type":"object"}', 'test'),
-  ('ratelimit.recovery_issue', '{"capacity":100,"per_seconds":60}', '{"type":"object"}', 'test');
+  ('ratelimit.test', '{"capacity":2,"per_seconds":3600}', '{"type":"object"}', 'test');
+update public.app_settings set value = '{"capacity":100,"per_seconds":60}'
+  where key = 'ratelimit.recovery_issue' and scope_business_id is null;
 
 select ok(not has_table_privilege('authenticated', 'ops.recovery_codes', 'select'), 'authenticated cannot read recovery codes');
 select ok(not has_function_privilege('authenticated', 'api.svc_consume_recovery_code(text,text)', 'execute'), 'consume is service-role only');

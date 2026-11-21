@@ -1,6 +1,7 @@
 -- Global default settings (BACKEND_PLAN.md §3.2, retention §17.5).
 -- Re-running keeps existing values and only refreshes schema/description.
--- Not seeded yet (values not decided): ratelimit.<action>, jobs.<name>.cron.
+-- Not seeded yet (values not decided): jobs.<name>.cron.
+-- ratelimit.<action>: token bucket, `capacity` requests refilled evenly over `per_seconds`.
 insert into public.app_settings (key, value, value_schema, description) values
   ('claims.ttl_seconds',              '600',              '{"type":"integer","minimum":1}', 'Claim QR lifetime in seconds'),
   ('qr.prefix',                       '"GR"',             '{"type":"string","pattern":"^[A-Z]+$"}', 'Prefix written into new QR payloads'),
@@ -32,6 +33,12 @@ insert into public.app_settings (key, value, value_schema, description) values
   ('retention.unchecked_accounts_days', '30',             '{"type":"integer","minimum":1}', 'Provisional, pending legal review'),
   ('retention.recovery_codes_days',   '30',               '{"type":"integer","minimum":1}', 'Provisional, pending legal review'),
   ('retention.rate_limit_counters_days', '30',            '{"type":"integer","minimum":1}', 'Provisional, pending legal review'),
+  ('ratelimit.register', '{"capacity":10,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Sign-ups per client IP'),
+  ('ratelimit.sign_in_ip', '{"capacity":60,"per_seconds":600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Sign-in attempts per client IP'),
+  ('ratelimit.sign_in_phone', '{"capacity":10,"per_seconds":600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Sign-in attempts per phone'),
+  ('ratelimit.recover_ip', '{"capacity":10,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Recovery attempts per client IP'),
+  ('ratelimit.recover_phone', '{"capacity":5,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Recovery attempts per phone'),
+  ('ratelimit.recovery_issue', '{"capacity":20,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Recovery codes issued per staff member'),
   ('offers.cross_business_enabled',   'false',            '{"type":"boolean"}', 'Phase-2 switch for cross-business offers')
 on conflict (key, coalesce(scope_business_id, '00000000-0000-0000-0000-000000000000'::uuid)) do update
   set value_schema = excluded.value_schema,
