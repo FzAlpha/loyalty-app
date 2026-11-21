@@ -77,8 +77,8 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] Edge Functions: auth-register, auth-sign-in, auth-recover, staff-admin + _shared
   - [ ] Edge Function HTTP tests
   - [x] ratelimit.* values seeded
-  - [~] Phone release frees auth.users.phone (pgTAP green; GoTrue e2e blocked)
-  - [~] Local phone login via CI-only dummy Twilio block
+  - [x] Phone release frees auth.users.phone (pgTAP + GoTrue e2e green)
+  - [x] Local phone login in CI via dummy Twilio block
 - [ ] M3 Cards
 - [ ] M4 Approval
 - [ ] M5–6 Offers
