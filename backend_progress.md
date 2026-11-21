@@ -75,7 +75,8 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] Schema: identity, businesses, staff, security (lockout, rate limit, recovery codes)
   - [x] Roles/permissions seed; audit triggers; pgTAP 10_identity + 85_security (CI green)
   - [x] Edge Functions: auth-register, auth-sign-in, auth-recover, staff-admin + _shared
-  - [ ] Edge Function HTTP tests
+  - [x] Edge Function HTTP tests (32 checks green in CI)
+  - [x] service_role usage on schema api (fixes svc_* calls from functions)
   - [x] ratelimit.* values seeded
   - [x] Phone release frees auth.users.phone (pgTAP + GoTrue e2e green)
   - [x] Local phone login in CI via dummy Twilio block

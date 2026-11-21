@@ -580,7 +580,7 @@ Figures come from 2026 third-party summaries, not from Supabase directly:
 - `ratelimit.*` settings (`register`, `sign_in_ip`, `sign_in_phone`, `recover_ip`, `recover_phone`, `recovery_issue`) are seeded with defaults approved 2026-11-21. If the client IP is not forwarded, all users share one IP and `sign_in_ip` (60/10 min) caps the whole app; revisit after the Sb-Forwarded-For retest.
 - Disabled staff are banned with a long `ban_duration` (Auth has no permanent flag) plus `staff.is_active = false` and session revocation.
 - In `auth-recover` the code is spent before the password update; if the update fails, staff must issue a new code.
-- Edge Functions are type-checked in CI only; no end-to-end HTTP tests yet.
+- Edge Functions are type-checked and HTTP-tested in CI (backend/tests/edge_functions.sh: register, sign-in + lockout, recover, staff-admin) against the local stack. Local stack only: hosted function behaviour is not tested.
 - Local stack (CLI v3.2.0) disables phone login unless an `[auth.sms.<provider>]` block is enabled; the send_sms hook does not count. So local phone + password sign-in is off and the GoTrue e2e sign-in checks fail. Hosted is unaffected (M0). CI enables a Twilio block with fake values in the runner copy only (approved 2026-11-21); the send_sms hook still refuses all SMS. The tracked config.toml keeps Twilio off, so local dev outside CI has no phone login.
 
 ### 17.4 pnpm workspaces
