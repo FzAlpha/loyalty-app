@@ -186,3 +186,132 @@ begin
                             'assignment_id', v_assignment, 'status', 'pending');
 end;
 $$;
+
+-- ---------------------------------------------------------------- approval (M4, §6)
+-- Staff scan at the acting business (card.view). Customer details are masked.
+create or replace function api.scan_card(p_qr_payload text, p_business_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_hash bytea;
+  v_card public.cards;
+  v_customer jsonb;
+  v_pending jsonb;
+begin
+  perform private.require_permission('card.view', p_business_id);
+  v_hash := private.parse_card_qr(p_qr_payload);
+  select * into v_card from public.cards where token_hash = v_hash;
+  if not found then
+    perform private.raise_error('INVALID_QR');
+  end if;
+  if v_card.current_customer_id is not null then
+    v_customer := private.customer_masked(v_card.current_customer_id);
+  end if;
+  select jsonb_build_object('assignment_id', a.id, 'requested_at', a.requested_at) into v_pending
+  from public.card_assignments a where a.card_id = v_card.id and a.status = 'pending';
+  return jsonb_build_object('card_id', v_card.id, 'card_number', v_card.card_number, 'status', v_card.status,
+                            'customer', v_customer, 'pending_request', v_pending);
+end;
+$$;
+
+-- Locks the card and its pending assignment; returns the assignment id or raises CARD_NOT_PENDING.
+create or replace function private.lock_pending_card(p_card_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_status public.card_status;
+  v_assignment uuid;
+begin
+  select status into v_status from public.cards where id = p_card_id for update;
+  if not found then
+    perform private.raise_error('NOT_FOUND', 'card');
+  end if;
+  select id into v_assignment from public.card_assignments
+  where card_id = p_card_id and status = 'pending' for update;
+  if v_status <> 'pending' or v_assignment is null then
+    perform private.raise_error('CARD_NOT_PENDING');
+  end if;
+  return v_assignment;
+end;
+$$;
+
+-- Approve = record a passed in-store identity check (§7.4) and activate card + membership, atomically.
+create or replace function api.approve_card(
+  p_card_id uuid,
+  p_business_id uuid,
+  p_evidence public.identity_evidence[],
+  p_note text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := private.require_permission('card.approve', p_business_id);
+  v_card public.cards;
+  v_a public.card_assignments;
+  v_check uuid;
+begin
+  if p_business_id is null then
+    perform private.raise_error('VALIDATION_FAILED', 'business_id required');
+  end if;
+  if p_evidence is null or cardinality(p_evidence) = 0 then
+    perform private.raise_error('VALIDATION_FAILED', 'evidence required');
+  end if;
+  select * into v_a from public.card_assignments where id = private.lock_pending_card(p_card_id);
+  select * into v_card from public.cards where id = p_card_id;
+  v_check := private.record_identity_check(v_a.customer_id, p_business_id, p_evidence, 'passed', p_note);
+
+  update public.card_assignments
+  set status = 'approved', decided_by = v_uid, decided_at = now(), decision_business_id = p_business_id
+  where id = v_a.id;
+  update public.cards set status = 'active' where id = v_card.id;
+  perform private.set_membership_status(v_a.customer_id, 'active');
+
+  perform audit.write('card.approved', 'card', v_card.id, jsonb_build_object('status', 'pending'),
+    jsonb_build_object('status', 'active', 'assignment_id', v_a.id, 'identity_check_id', v_check), p_business_id);
+  return jsonb_build_object('card_id', v_card.id, 'assignment_id', v_a.id, 'status', 'active',
+                            'identity_check_id', v_check);
+end;
+$$;
+
+-- Reject: card goes back to unassigned (can be linked again), membership becomes rejected.
+create or replace function api.reject_card(p_card_id uuid, p_business_id uuid, p_reason text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := private.require_permission('card.approve', p_business_id);
+  v_card public.cards;
+  v_a public.card_assignments;
+begin
+  if p_business_id is null then
+    perform private.raise_error('VALIDATION_FAILED', 'business_id required');
+  end if;
+  if p_reason is null or char_length(btrim(p_reason)) not between 1 and 500 then
+    perform private.raise_error('VALIDATION_FAILED', 'reason');
+  end if;
+  select * into v_a from public.card_assignments where id = private.lock_pending_card(p_card_id);
+  select * into v_card from public.cards where id = p_card_id;
+
+  update public.card_assignments
+  set status = 'rejected', decided_by = v_uid, decided_at = now(), decision_business_id = p_business_id,
+      reason = btrim(p_reason)
+  where id = v_a.id;
+  update public.cards set status = 'unassigned', current_customer_id = null where id = v_card.id;
+  perform private.set_membership_status(v_a.customer_id, 'rejected');
+
+  perform audit.write('card.rejected', 'card', v_card.id, jsonb_build_object('status', 'pending'),
+    jsonb_build_object('status', 'unassigned', 'assignment_id', v_a.id, 'reason', btrim(p_reason)), p_business_id);
+  return jsonb_build_object('card_id', v_card.id, 'assignment_id', v_a.id, 'status', 'rejected');
+end;
+$$;

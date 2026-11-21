@@ -21,7 +21,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [ ] M0: delete spike project after tests
 
 ## Decisions
-- 2026-11-21: Proposed defaults (unconfirmed): cards.batch_max_quantity 5000, ratelimit.card_link 10/hour
+- 2026-11-21: Approved defaults: cards.batch_max_quantity 5000, ratelimit.card_link 10/hour
 - 2026-11-21: CI-only dummy Twilio block enables local phone login (runner copy only; hook refuses SMS)
 - 2026-11-18: Folder structure approved (plan §1); dashboard = frontend/dashboard
 - 2026-11-18: Supabase Free plan for now; no Team/Enterprise features
@@ -82,14 +82,17 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] ratelimit.* values seeded
   - [x] Phone release frees auth.users.phone (pgTAP + GoTrue e2e green)
   - [x] Local phone login in CI via dummy Twilio block
-- [~] M3 Cards
+- [x] M3 Cards (card-generator tool pending)
   - [x] cards / card_assignments / card_batches tables, RLS, audit (CI green)
   - [x] QR format v1 parse + payload helpers
   - [x] api.create_card_batch + card-batches Edge Function (CSV once, hashes only)
   - [x] api.link_card (double-link guard, staff refused, membership → pending)
   - [x] phone release blocked while card pending/active
   - [ ] tools/card-generator (print sheets from CSV)
-- [ ] M4 Approval
+- [~] M4 Approval
+  - [~] api.scan_card / approve_card (records passed identity check) / reject_card
+  - [~] Realtime on card_assignments
+  - [~] pgTAP: 20 M4 checks in 40_cards (CI pending)
 - [ ] M5–6 Offers
 - [ ] M7 Claims & redemption
 - [ ] M8 Reporting & audit

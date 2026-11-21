@@ -21,6 +21,7 @@ insert into public.error_codes (code, http_status, description) values
   ('INVALID_QR',         400, 'QR code is not valid'),
   ('CARD_NOT_AVAILABLE', 409, 'Card is not available for linking'),
   ('CARD_ALREADY_LINKED', 409, 'Customer already has a card'),
+  ('CARD_NOT_PENDING', 409, 'Card has no pending request'),
   ('CARD_NUMBERS_EXHAUSTED', 409, 'No card numbers left for the configured digit count'),
   ('INTERNAL_ERROR',     500, 'Unexpected server error')
 on conflict (code) do update

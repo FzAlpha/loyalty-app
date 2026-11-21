@@ -57,3 +57,13 @@ create unique index card_assignments_live_customer on public.card_assignments (c
   where status in ('pending', 'approved');
 create unique index card_assignments_live_card on public.card_assignments (card_id)
   where status in ('pending', 'approved');
+
+-- Realtime (§10): customers get their own assignment changes (card approved/rejected) via RLS.
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables
+                     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'card_assignments') then
+    alter publication supabase_realtime add table public.card_assignments;
+  end if;
+end $$;

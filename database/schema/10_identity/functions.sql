@@ -312,6 +312,20 @@ as $$
   update public.profiles set membership_status = p_status where id = p_customer_id;
 $$;
 
+-- Masked customer view for staff screens (40_cards scan): name, last 4 phone digits, check state.
+create or replace function private.customer_masked(p_customer_id uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object('customer_id', p.id, 'full_name', p.full_name,
+           'phone_masked', case when p.phone_e164 is null then null else '******' || right(p.phone_e164, 4) end,
+           'identity_checked_at', p.identity_checked_at, 'membership_status', p.membership_status)
+  from public.profiles p where p.id = p_customer_id;
+$$;
+
 -- Active customer account (not staff) whose membership allows linking a card.
 create or replace function private.customer_can_link(p_uid uuid)
 returns boolean

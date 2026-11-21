@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(24);
+select plan(44);
 
 -- fixtures
 insert into auth.users (id, phone, raw_user_meta_data, raw_app_meta_data) values
@@ -11,7 +11,8 @@ insert into auth.users (id, phone, raw_user_meta_data, raw_app_meta_data) values
   ('e0000000-0000-0000-0000-00000000000e', '910000000102', '{"full_name":"Exec"}',  '{"account_type":"staff"}'),
   ('c1000000-0000-0000-0000-0000000000c1', '919800000001', '{"full_name":"Cust One"}', '{}'),
   ('c2000000-0000-0000-0000-0000000000c2', '919800000002', '{"full_name":"Cust Two"}', '{}');
-insert into public.businesses (id, slug, name) values ('b1000000-0000-0000-0000-000000000001', 'cards-biz', 'Cards Biz');
+insert into public.businesses (id, slug, name) values ('b1000000-0000-0000-0000-000000000001', 'cards-biz', 'Cards Biz'),
+  ('b2000000-0000-0000-0000-000000000002', 'cards-biz-2', 'Cards Biz 2');
 select private.grant_role('a0000000-0000-0000-0000-00000000000a', 'owner', null, null);
 select private.grant_role('e0000000-0000-0000-0000-00000000000e', 'executive', 'b1000000-0000-0000-0000-000000000001', null);
 insert into public.staff (user_id, business_id, display_name) values
@@ -78,6 +79,52 @@ set local request.jwt.claims = '{"sub":"c2000000-0000-0000-0000-0000000000c2","r
 select throws_ok($$select api.link_card((select qr_payload from t_qr where n = 3))$$, 'PT403', 'FORBIDDEN', 'revoked session cannot link');
 
 select is((select count(*)::int from audit.audit_logs where action = 'card.linked'), 1, 'link audited');
+
+-- ---------------------------------------------------------------- M4 approval
+create temp table t_ids as select c.id, q.n from public.cards c join t_qr q on q.card_number = c.card_number;
+set local request.jwt.claims = '{"sub":"c2000000-0000-0000-0000-0000000000c2","role":"authenticated","session_id":"5c200000-0000-0000-0000-0000000000c2"}';
+select is(api.link_card((select qr_payload from t_qr where n = 3)) ->> 'status', 'pending', 'second customer links card 3');
+
+set local request.jwt.claims = '{"sub":"e0000000-0000-0000-0000-00000000000e","role":"authenticated","session_id":"5e000000-0000-0000-0000-00000000000e"}';
+create temp table t_scan as select api.scan_card((select qr_payload from t_qr where n = 1), 'b1000000-0000-0000-0000-000000000001') as r;
+select is((select r ->> 'status' from t_scan), 'pending', 'scan shows pending card');
+select is((select r -> 'customer' ->> 'phone_masked' from t_scan), '******0001', 'scan masks phone');
+select ok((select r -> 'pending_request' ->> 'assignment_id' is not null from t_scan), 'scan shows pending request');
+select throws_ok($$select api.scan_card((select qr_payload from t_qr where n = 1), 'b2000000-0000-0000-0000-000000000002')$$,
+                 'PT403', 'FORBIDDEN', 'executive cannot scan for another business');
+select throws_ok($$select api.approve_card((select id from t_ids where n = 1), 'b1000000-0000-0000-0000-000000000001', array[]::public.identity_evidence[])$$,
+                 'PT400', 'VALIDATION_FAILED', 'approve needs evidence');
+
+select is(api.reject_card((select id from t_ids where n = 3), 'b1000000-0000-0000-0000-000000000001', 'details did not match') ->> 'status', 'rejected', 'executive rejects');
+select is((select status from public.cards where id = (select id from t_ids where n = 3)), 'unassigned'::public.card_status,
+          'rejected card back to unassigned');
+select is((select membership_status from public.profiles where id = 'c2000000-0000-0000-0000-0000000000c2'),
+          'rejected'::public.membership_status, 'membership rejected');
+
+select is(api.approve_card((select id from t_ids where n = 1), 'b1000000-0000-0000-0000-000000000001',
+          array['registration_details']::public.identity_evidence[]) ->> 'status', 'active', 'executive approves');
+select ok((select c.status = 'active' and p.membership_status = 'active' from public.cards c
+           join public.profiles p on p.id = c.current_customer_id where c.id = (select id from t_ids where n = 1)),
+          'card and membership active');
+select ok((select identity_checked_at is not null from public.profiles where id = 'c1000000-0000-0000-0000-0000000000c1'),
+          'approval records a passed identity check');
+select throws_ok($$select api.approve_card((select id from t_ids where n = 1), 'b1000000-0000-0000-0000-000000000001',
+                 array['registration_details']::public.identity_evidence[])$$, 'PT409', 'CARD_NOT_PENDING', 'cannot approve twice');
+select throws_ok($$select api.reject_card((select id from t_ids where n = 1), 'b1000000-0000-0000-0000-000000000001', 'x')$$,
+                 'PT409', 'CARD_NOT_PENDING', 'cannot reject an active card');
+
+set local request.jwt.claims = '{"sub":"c2000000-0000-0000-0000-0000000000c2","role":"authenticated","session_id":"5c200000-0000-0000-0000-0000000000c2"}';
+select is(api.link_card((select qr_payload from t_qr where n = 3)) ->> 'status', 'pending', 'rejected customer can link again');
+set local request.jwt.claims = '{"sub":"c1000000-0000-0000-0000-0000000000c1","role":"authenticated","session_id":"5c100000-0000-0000-0000-0000000000c1"}';
+select throws_ok($$select api.approve_card((select id from t_ids where n = 3), 'b1000000-0000-0000-0000-000000000001',
+                 array['registration_details']::public.identity_evidence[])$$, 'PT403', 'FORBIDDEN', 'customer cannot approve');
+select throws_ok($$select api.scan_card((select qr_payload from t_qr where n = 3), 'b1000000-0000-0000-0000-000000000001')$$, 'PT403', 'FORBIDDEN',
+                 'customer cannot scan');
+
+select ok(exists(select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'card_assignments'),
+          'card_assignments in Realtime publication');
+select is((select count(*)::int from audit.audit_logs where action = 'card.approved'), 1, 'approval audited');
+select is((select count(*)::int from audit.audit_logs where action = 'card.rejected'), 1, 'rejection audited');
 
 select * from finish();
 rollback;
