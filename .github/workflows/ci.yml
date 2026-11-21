@@ -17,6 +17,9 @@ jobs:
         with:
           deno-version: v2.x
       - name: Type-check Edge Functions
+        # Functions use npm: specifiers from Deno's cache; ignore the repo's pnpm package.json.
+        env:
+          DENO_NO_PACKAGE_JSON: "1"
         run: |
           set -o pipefail
           deno check backend/supabase/functions/*/index.ts 2>&1 | tee check.log
