@@ -25,26 +25,26 @@ jobs:
         run: command -v psql || (sudo apt-get update && sudo apt-get install -y postgresql-client)
 
       - name: Start local Supabase
-        run: supabase start
+        run: mkdir -p /tmp/ci && supabase start 2>&1 | tee /tmp/ci/start.log
 
       - name: Export local connection env
         run: supabase status -o env | grep -E '^[A-Z_]+=' | sed 's/"//g' >> "$GITHUB_ENV"
 
       - name: Apply schema (database/schema)
-        run: npm run db:apply
+        run: npm run db:apply 2>&1 | tee /tmp/ci/apply.log
 
       - name: Seed reference data
-        run: npm run db:seed
+        run: npm run db:seed 2>&1 | tee /tmp/ci/seed.log
 
       - name: pgTAP tests (database/tests)
-        run: npm run db:test
+        run: npm run db:test 2>&1 | tee /tmp/ci/test.log
 
       - name: Probe declarative schema wiring (M0, informational)
         continue-on-error: true
-        run: timeout 300 supabase db schema declarative sync < /dev/null
+        run: timeout 300 supabase db schema declarative sync < /dev/null 2>&1 | tee /tmp/ci/probe.log
 
       - name: Codegen
-        run: npm run codegen
+        run: npm run codegen 2>&1 | tee /tmp/ci/codegen.log
 
       - name: Upload generated contracts
         uses: actions/upload-artifact@v4
@@ -54,4 +54,15 @@ jobs:
 
       # git diff ignores untracked files, so this passes until contracts are first committed.
       - name: Codegen drift check
-        run: npm run codegen:check
+        run: npm run codegen:check 2>&1 | tee /tmp/ci/drift.log
+
+      # Job logs need a GitHub sign-in; annotations are public, so surface step output there.
+      - name: Report logs as annotations
+        if: always()
+        run: |
+          for f in /tmp/ci/*.log; do
+            [ -f "$f" ] || continue
+            msg=$(tail -n 60 "$f" | sed -e 's/%/%25/g' | sed -e ':a;N;$!ba;s/
+/%0A/g')
+            echo "::notice title=$(basename "$f")::$msg"
+          done
