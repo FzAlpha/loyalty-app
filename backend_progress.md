@@ -72,7 +72,8 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 ## Milestones (§15)
 - [x] M0 Spikes (signed off): no-SMS signup, IP limits via Edge Fn, Expo+pnpm, folder wiring
 - [~] M1 Foundation: core module, envs, CI, encrypted backups + restore drill, codegen
-- [~] M2 Identity & auth
+- [x] M2 Identity & auth
+  - [x] Session revocation verified (old refresh + access token refused, CI)
   - [x] Schema: identity, businesses, staff, security (lockout, rate limit, recovery codes)
   - [x] Roles/permissions seed; audit triggers; pgTAP 10_identity + 85_security (CI green)
   - [x] Edge Functions: auth-register, auth-sign-in, auth-recover, staff-admin + _shared
@@ -82,11 +83,11 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] Phone release frees auth.users.phone (pgTAP + GoTrue e2e green)
   - [x] Local phone login in CI via dummy Twilio block
 - [~] M3 Cards
-  - [~] cards / card_assignments / card_batches tables, RLS, audit (CI pending)
-  - [~] QR format v1 parse + payload helpers
-  - [~] api.create_card_batch + card-batches Edge Function (CSV once, hashes only)
-  - [~] api.link_card (double-link guard, staff refused, membership → pending)
-  - [~] phone release blocked while card pending/active
+  - [x] cards / card_assignments / card_batches tables, RLS, audit (CI green)
+  - [x] QR format v1 parse + payload helpers
+  - [x] api.create_card_batch + card-batches Edge Function (CSV once, hashes only)
+  - [x] api.link_card (double-link guard, staff refused, membership → pending)
+  - [x] phone release blocked while card pending/active
   - [ ] tools/card-generator (print sheets from CSV)
 - [ ] M4 Approval
 - [ ] M5–6 Offers

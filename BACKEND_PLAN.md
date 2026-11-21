@@ -553,7 +553,7 @@ Alternatives if strict enforcement becomes mandatory (none will be built without
 
 **Resolved in M0 — signup without SMS** (§7.1). Remaining risk: it depends on three project settings (Phone on, Send SMS Hook refusing, signups off). If someone turns public signups back on, anyone can self-register or reserve any phone number via `/otp`. A CI smoke test checks `/auth/v1/settings` (`disable_signup: true`) per environment.
 
-**Unresolved — server-side session revocation** after recovery. M0 note: supabase-js Admin `signOut` takes a user JWT, not a user id, so it is not a "revoke all sessions of user X" call. Method to be verified before recovery ships (M2).
+**Resolved (M2) — server-side session revocation.** supabase-js Admin `signOut` takes a user JWT, not a user id, so recovery and staff disable delete the user's `auth.sessions` rows (`private.revoke_user_sessions`). CI verifies that afterwards the old refresh token is refused (400) and `/auth/v1/user` rejects the old access token (403). PostgREST RPCs also refuse dead sessions via `private.session_is_live`. Limitation: other services that only check the JWT signature would accept the old access token until it expires. Local stack only, not verified on hosted.
 
 **Confirmed problem — Supabase per-IP limits behind one Edge Function IP** (M0 test b): every sign-in through `auth-sign-in` reaches Supabase from one Edge Function IP and shares one bucket (burst ~30, then `429`; documented 1800/hour). Busy periods would throttle real users. Documented fix: send `Sb-Forwarded-For: <caller IP>` with the **secret** API key and switch on "IP Address Forwarding". Ignored with the switch off (verified); with it on: **not yet tested**. Not adopted until tested and agreed with you.
 
