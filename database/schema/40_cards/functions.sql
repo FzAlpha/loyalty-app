@@ -315,3 +315,14 @@ begin
   return jsonb_build_object('card_id', v_card.id, 'assignment_id', v_a.id, 'status', 'rejected');
 end;
 $$;
+
+-- Eligibility engine (50_offers): customer holds an active card.
+create or replace function private.customer_has_active_card(p_customer_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.cards where current_customer_id = p_customer_id and status = 'active');
+$$;

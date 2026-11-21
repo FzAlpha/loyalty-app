@@ -429,3 +429,14 @@ begin
   return v_status;
 end;
 $$;
+
+-- Facts the eligibility engine (50_offers) needs about a customer. No row = unknown customer.
+create or replace function private.customer_offer_facts(p_customer_id uuid)
+returns table (account_status public.account_status, membership_status public.membership_status, date_of_birth date)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.account_status, p.membership_status, p.date_of_birth from public.profiles p where p.id = p_customer_id;
+$$;

@@ -39,6 +39,17 @@ create trigger audit_row after insert or update or delete on public.cards
 drop trigger if exists audit_row on public.card_assignments;
 create trigger audit_row after insert or update or delete on public.card_assignments
   for each row execute function audit.log_row_change('decision_business_id');
+
+-- M5 (50_offers).
+drop trigger if exists audit_row on public.offers;
+create trigger audit_row after insert or update or delete on public.offers
+  for each row execute function audit.log_row_change('business_id');
+drop trigger if exists audit_row on public.offer_schedules;
+create trigger audit_row after insert or update or delete on public.offer_schedules
+  for each row execute function audit.log_row_change();
+drop trigger if exists audit_row on public.customer_groups;
+create trigger audit_row after insert or update or delete on public.customer_groups
+  for each row execute function audit.log_row_change();
 drop trigger if exists audit_row on public.card_batches;
 create trigger audit_row after insert or update or delete on public.card_batches
   for each row execute function audit.log_row_change();

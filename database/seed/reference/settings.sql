@@ -40,7 +40,11 @@ insert into public.app_settings (key, value, value_schema, description) values
   ('ratelimit.recover_ip', '{"capacity":10,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Recovery attempts per client IP'),
   ('ratelimit.recover_phone', '{"capacity":5,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Recovery attempts per phone'),
   ('ratelimit.recovery_issue', '{"capacity":20,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Recovery codes issued per staff member'),
-  ('ratelimit.card_link', '{"capacity":10,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Recovery codes issued per staff member'),
+  ('ratelimit.card_link', '{"capacity":10,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Card link attempts per customer'),
+  ('storage.bucket.business_assets', '"business-assets"', '{"type":"string","pattern":"^[a-z0-9-]+$"}', 'Bucket for business logos (public read)'),
+  ('storage.bucket.offer_banners',   '"offer-banners"',   '{"type":"string","pattern":"^[a-z0-9-]+$"}', 'Bucket for offer banners (public read)'),
+  ('storage.max_file_bytes',         '5242880',           '{"type":"integer","minimum":1}', 'Upload size limit for asset buckets'),
+  ('storage.allowed_mime_types',     '["image/png","image/jpeg","image/webp"]', '{"type":"array","minItems":1,"items":{"type":"string"}}', 'MIME types allowed in asset buckets'),
   ('offers.cross_business_enabled',   'false',            '{"type":"boolean"}', 'Phase-2 switch for cross-business offers')
 on conflict (key, coalesce(scope_business_id, '00000000-0000-0000-0000-000000000000'::uuid)) do update
   set value_schema = excluded.value_schema,

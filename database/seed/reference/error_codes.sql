@@ -23,6 +23,15 @@ insert into public.error_codes (code, http_status, description) values
   ('CARD_ALREADY_LINKED', 409, 'Customer already has a card'),
   ('CARD_NOT_PENDING', 409, 'Card has no pending request'),
   ('CARD_NUMBERS_EXHAUSTED', 409, 'No card numbers left for the configured digit count'),
+  ('ACCOUNT_INACTIVE',   409, 'Account is not active'),
+  ('MEMBERSHIP_INACTIVE', 409, 'Membership is not active'),
+  ('CARD_INACTIVE',      409, 'No active card'),
+  ('OFFER_INACTIVE',     409, 'Offer is not active or outside its dates'),
+  ('OUTSIDE_SCHEDULE',   409, 'Offer is not available at this day or time'),
+  ('NOT_IN_GROUP',       409, 'Offer is limited to other customer groups'),
+  ('OUTSIDE_BIRTHDAY_WINDOW', 409, 'Offer is only available around your birthday'),
+  ('CUSTOMER_LIMIT_REACHED', 409, 'You have used this offer the maximum number of times'),
+  ('OFFER_LIMIT_REACHED', 409, 'Offer has reached its total usage limit'),
   ('INTERNAL_ERROR',     500, 'Unexpected server error')
 on conflict (code) do update
   set http_status = excluded.http_status,
