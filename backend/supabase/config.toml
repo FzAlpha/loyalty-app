@@ -432,3 +432,17 @@ declarative_schema_path = "../../database/schema"
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# Public auth endpoints: callers have no JWT yet. Each function validates input and rate-limits itself.
+[functions.auth-register]
+verify_jwt = false
+
+[functions.auth-sign-in]
+verify_jwt = false
+
+[functions.auth-recover]
+verify_jwt = false
+
+# staff-admin keeps the gateway JWT check and also verifies the caller and staff.manage inside.
+[functions.staff-admin]
+verify_jwt = true

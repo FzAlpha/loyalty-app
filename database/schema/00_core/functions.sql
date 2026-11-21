@@ -119,3 +119,12 @@ begin
   return new;
 end;
 $$;
+
+-- Service-role only: lets Edge Functions read a business rule (e.g. auth.password.min_length).
+create or replace function api.svc_get_setting(p_key text, p_business_id uuid default null)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$ select private.get_setting(p_key, p_business_id); $$;

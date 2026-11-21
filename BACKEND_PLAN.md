@@ -571,6 +571,17 @@ Figures come from 2026 third-party summaries, not from Supabase directly:
 - Phone reassignment needs two different people (executive + owner), which limits single-insider abuse but adds an owner step for every release.
 - Supabase may internally mark the phone as "confirmed" so login works; that flag is ignored for any trust decision.
 
+- **M2 (open): release does not free `auth.users.phone`.** Approving a phone release disables the old profile, but the Auth user keeps the phone, so the new holder cannot register and the old holder can still sign in at Auth level. Fix needs an Edge Function step (Admin `updateUserById` to clear/ban the old user); not built yet.
+- **M2 (open): release does not check active cards** yet; added with the cards module (M3).
+
+### 17.8 M2 auth limitations (as built)
+- Lockout and rate limits run in `auth-sign-in`; direct calls to Supabase Auth `/token` with the anon key bypass them (only Auth's built-in IP limits apply).
+- Client IP comes from the first `X-Forwarded-For` entry; whether the Edge runtime passes the real client IP is unverified (Sb-Forwarded-For retest deferred). Until verified, per-IP limits may group users.
+- `ratelimit.*` settings (`register`, `sign_in_ip`, `sign_in_phone`, `recover_ip`, `recover_phone`, `recovery_issue`) are not seeded; the functions fail closed with SETTING_NOT_FOUND until values are chosen.
+- Disabled staff are banned with a long `ban_duration` (Auth has no permanent flag) plus `staff.is_active = false` and session revocation.
+- In `auth-recover` the code is spent before the password update; if the update fails, staff must issue a new code.
+- Edge Functions are type-checked in CI only; no end-to-end HTTP tests yet.
+
 ### 17.4 pnpm workspaces
 - Adds `pnpm-workspace.yaml`, root `package.json` (scripts only) and `.npmrc` (§1).
 - M0 (c): Expo SDK 58 bundles a `packages/*` workspace dependency with pnpm's default isolated linker; `node-linker=hoisted` **not** needed for JS bundling. Native/EAS build not yet tested (M1).

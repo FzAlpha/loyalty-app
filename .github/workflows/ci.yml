@@ -9,6 +9,24 @@ permissions:
   contents: read
 
 jobs:
+  functions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Edge Functions
+        run: |
+          set -o pipefail
+          deno check backend/supabase/functions/*/index.ts 2>&1 | tee check.log
+      - name: Report check log
+        if: always()
+        run: |
+          [ -f check.log ] || exit 0
+          msg=$(tail -n 60 check.log | awk '{ gsub(/%/, "%25"); gsub(/\r/, ""); printf "%s%%0A", $0 }')
+          echo "::notice title=deno-check.log::$msg"
+
   database:
     runs-on: ubuntu-latest
     defaults:

@@ -15,7 +15,10 @@ insert into public.error_codes (code, http_status, description) values
   ('RELEASE_NOT_ALLOWED', 409, 'Phone number cannot be released for this account'),
   ('SAME_APPROVER',      403, 'Requester and approver must be different people'),
   ('REMOTE_LIMIT_REACHED', 429, 'Daily limit for remote recovery codes reached'),
-  ('PHONE_TAKEN',        409, 'Phone number is already registered')
+  ('PHONE_TAKEN',        409, 'Phone number is already registered'),
+  ('AUTH_UNAVAILABLE',   503, 'Sign-in service unavailable; try again'),
+  ('METHOD_NOT_ALLOWED', 405, 'HTTP method not allowed'),
+  ('INTERNAL_ERROR',     500, 'Unexpected server error')
 on conflict (code) do update
   set http_status = excluded.http_status,
       description = excluded.description;

@@ -10,3 +10,6 @@ alter default privileges revoke execute on functions from public;
 
 revoke all on table public.error_codes, public.app_settings from public, anon, authenticated;
 revoke all on all functions in schema private from public, anon, authenticated;
+
+revoke all on function api.svc_get_setting(text, uuid) from public, anon, authenticated;
+grant execute on function api.svc_get_setting(text, uuid) to service_role;

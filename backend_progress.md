@@ -33,6 +33,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - 2026-11-18: Retention (provisional, not legal): claims 90d, login attempts 30d, deleted accts 30d, audit 2y
 - 2026-11-18: Retention (provisional, not legal): unchecked accts 30d, recovery codes 30d, rate counters 30d, backups 30d
 - 2026-11-18: M0 tests approved: no-SMS signup, IP limits via Edge Fn, Expo+pnpm
+- 2026-11-21: M0 signed off; Sb-Forwarded-For retest, Expo native build, backups, staging deferred
 - 2026-11-18: Encrypted nightly backups to client-owned external storage; periodic restore tests
 - 2026-11-18: QR GR.C.1 / GR.Q.1; old formats still accepted; card no. GR-000001
 - 2026-11-18: .github/workflows/ approved for CI
@@ -66,9 +67,15 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [ ] Staging deploy on main — needs staging project + secrets
 
 ## Milestones (§15)
-- [~] M0 Spikes: no-SMS signup, IP limits via Edge Fn, Expo+pnpm, folder wiring
+- [x] M0 Spikes (signed off): no-SMS signup, IP limits via Edge Fn, Expo+pnpm, folder wiring
 - [~] M1 Foundation: core module, envs, CI, encrypted backups + restore drill, codegen
-- [ ] M2 Identity & auth (after M0 sign-off)
+- [~] M2 Identity & auth
+  - [x] Schema: identity, businesses, staff, security (lockout, rate limit, recovery codes)
+  - [x] Roles/permissions seed; audit triggers; pgTAP 10_identity + 85_security (CI green)
+  - [x] Edge Functions: auth-register, auth-sign-in, auth-recover, staff-admin + _shared
+  - [ ] Edge Function HTTP tests
+  - [!] ratelimit.* values — need user decision
+  - [ ] Phone release: free auth.users.phone via Admin API
 - [ ] M3 Cards
 - [ ] M4 Approval
 - [ ] M5–6 Offers
@@ -78,6 +85,6 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 
 ## Open questions (§16.2)
 - [ ] Sb-Forwarded-For retest with IP Address Forwarding on
-- [ ] M0 sign-off (unblocks M2)
+- [x] M0 sign-off
 - [ ] Backup storage provider + restore-test cadence (proposed monthly)
 - [ ] Client legal review of provisional retention defaults (DPDP Act)
