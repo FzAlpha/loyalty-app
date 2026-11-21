@@ -5,7 +5,17 @@ insert into public.error_codes (code, http_status, description) values
   ('UNAUTHENTICATED',    401, 'Sign-in required'),
   ('FORBIDDEN',          403, 'Missing permission for this action'),
   ('SETTING_NOT_FOUND',  500, 'Required app setting is missing'),
-  ('AUDIT_APPEND_ONLY',  403, 'Audit log rows cannot be changed or deleted')
+  ('AUDIT_APPEND_ONLY',  403, 'Audit log rows cannot be changed or deleted'),
+  ('NOT_FOUND',          404, 'Record not found'),
+  ('CONFLICT',           409, 'Conflicts with the current state'),
+  ('RATE_LIMITED',       429, 'Too many requests; try again later'),
+  ('ACCOUNT_LOCKED',     423, 'Too many failed sign-ins; try again later'),
+  ('INVALID_CREDENTIALS', 401, 'Phone number or password is wrong'),
+  ('RECOVERY_CODE_INVALID', 400, 'Recovery code is wrong, used or expired'),
+  ('RELEASE_NOT_ALLOWED', 409, 'Phone number cannot be released for this account'),
+  ('SAME_APPROVER',      403, 'Requester and approver must be different people'),
+  ('REMOTE_LIMIT_REACHED', 429, 'Daily limit for remote recovery codes reached'),
+  ('PHONE_TAKEN',        409, 'Phone number is already registered')
 on conflict (code) do update
   set http_status = excluded.http_status,
       description = excluded.description;

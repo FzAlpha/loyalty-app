@@ -71,9 +71,9 @@ Result so far: `node-linker=hoisted` **not** needed for JS bundling. Re-check wi
 | `supabase init --workdir backend` | Works; creates `backend/supabase/config.toml` | Verified |
 | `[db.migrations] schema_paths` | CLI 3.2.0 warns it **no longer** drives `db diff`; only the legacy migra engine reads it | Verified (CLI warning) |
 | Replacement | `supabase db schema declarative sync` reads `[experimental.pgdelta] declarative_schema_path` (default `supabase/schemas`; config comment says "under `supabase/`") | Verified (CLI help/config) |
-| `declarative_schema_path = "../../database/schema"` | Not rejected at parse time; diff/sync needs Docker (shadow DB) | Unverified |
+| `declarative_schema_path = "../../database/schema"` | CI run (2026-11-21, CLI 3.2.0): `declarative sync` read `database/schema` and wrote `backend/supabase/migrations/<ts>_declarative_sync.sql` | Verified |
 
-Plan §1 wiring must change (see "Plan impact"). Final check needs Docker: either Docker Desktop on this PC or a GitHub Actions run in M1.
+Plan §1 wiring must change (see "Plan impact"). Verified in GitHub Actions; no copy step (`sync-db`) needed.
 
 ## Spike-only leftovers (removed when the project is deleted)
 - `spike-admin-create` Edge Function accepts the public anon key, so anyone with the URL can create test users. Acceptable only on this throwaway project.

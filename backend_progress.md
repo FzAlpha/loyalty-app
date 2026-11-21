@@ -17,7 +17,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [!] M0: Sb-Forwarded-For fix — needs "IP Address Forwarding" toggle on (user)
 - [x] M0: Expo SDK 58 + pnpm isolated linker bundles workspace package
 - [ ] M0: Expo native/EAS build (no Android SDK here; M1)
-- [!] M0: folder wiring — schema_paths outdated in CLI 3.2.0; verify needs Docker
+- [x] M0: folder wiring — declarative_schema_path to database/schema verified in CI
 - [ ] M0: delete spike project after tests
 
 ## Decisions
@@ -60,7 +60,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [x] pgTAP: 29 checks pass on spike project
 - [~] CI workflow (supabase start, apply, seed, pgTAP, codegen) — first run pending
 - [ ] Commit generated contracts after first CI run (drift check)
-- [ ] Declarative schema wiring verified in CI (probe step)
+- [x] Declarative schema wiring verified in CI (probe step)
 - [ ] Seed ratelimit.<action> and jobs.<name>.cron — values not decided
 - [!] Nightly encrypted backup workflow + restore drill — backup provider not chosen
 - [ ] Staging deploy on main — needs staging project + secrets

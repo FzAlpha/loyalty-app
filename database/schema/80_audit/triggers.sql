@@ -11,3 +11,23 @@ create trigger block_truncate before truncate on audit.audit_logs
 drop trigger if exists audit_row on public.app_settings;
 create trigger audit_row after insert or update or delete on public.app_settings
   for each row execute function audit.log_row_change('scope_business_id');
+
+-- M2 modules (10_identity, 20_businesses). staff and ops tables are audited explicitly in their RPCs.
+drop trigger if exists audit_row on public.profiles;
+create trigger audit_row after insert or update or delete on public.profiles
+  for each row execute function audit.log_row_change();
+drop trigger if exists audit_row on public.user_roles;
+create trigger audit_row after insert or update or delete on public.user_roles
+  for each row execute function audit.log_row_change('business_id');
+drop trigger if exists audit_row on public.identity_checks;
+create trigger audit_row after insert or update or delete on public.identity_checks
+  for each row execute function audit.log_row_change('business_id');
+drop trigger if exists audit_row on public.phone_release_requests;
+create trigger audit_row after insert or update or delete on public.phone_release_requests
+  for each row execute function audit.log_row_change('requested_business_id');
+drop trigger if exists audit_row on public.businesses;
+create trigger audit_row after insert or update or delete on public.businesses
+  for each row execute function audit.log_row_change('id');
+drop trigger if exists audit_row on public.role_permissions;
+create trigger audit_row after insert or update or delete on public.role_permissions
+  for each row execute function audit.log_row_change();

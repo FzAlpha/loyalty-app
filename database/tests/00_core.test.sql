@@ -16,6 +16,7 @@ select ok(not has_function_privilege('authenticated', 'private.get_setting(text,
 
 -- settings lookup
 select is(private.get_setting('claims.ttl_seconds'), '600'::jsonb, 'global setting returned');
+insert into public.businesses (id, slug, name) values ('11111111-1111-1111-1111-111111111111', 'test-biz', 'Test');
 insert into public.app_settings (key, scope_business_id, value, value_schema, description)
 values ('claims.ttl_seconds', '11111111-1111-1111-1111-111111111111', '300', '{}', 'test override');
 select is(private.get_setting('claims.ttl_seconds', '11111111-1111-1111-1111-111111111111'), '300'::jsonb, 'business override wins');
@@ -35,7 +36,7 @@ select throws_ok($$insert into public.app_settings (key, scope_business_id, valu
 select throws_ok($$select private.raise_error('NOT_A_CODE')$$, 'PT500', 'UNKNOWN_ERROR_CODE', 'unknown code is caught');
 select throws_ok($$select private.require_auth()$$, 'PT401', 'UNAUTHENTICATED', 'no JWT -> UNAUTHENTICATED');
 set local request.jwt.claims = '{"sub":"44444444-4444-4444-4444-444444444444","role":"authenticated"}';
-select throws_ok($$select private.require_permission('card.view')$$, 'PT403', 'FORBIDDEN', 'M1 stub denies every permission');
+select throws_ok($$select private.require_permission('card.view')$$, 'PT403', 'FORBIDDEN', 'no roles -> FORBIDDEN');
 
 select * from finish();
 rollback;

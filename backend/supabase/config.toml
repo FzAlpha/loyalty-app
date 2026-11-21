@@ -265,7 +265,8 @@ otp_expiry = 3600
 [auth.sms]
 # Allow/disallow the phone provider. When false, users can't sign up or sign in with SMS.
 # To block new signups only, set enable_signup = false under [auth] instead.
-enabled = false
+# Phone provider on for phone + password sign-in (plan §7.1). No SMS provider is configured.
+enabled = true
 # If enabled, users need to confirm their phone number before signing in.
 enable_confirmations = false
 # Template for sending OTP to users
@@ -284,6 +285,11 @@ max_frequency = "5s"
 # timebox = "24h"
 # Force log out if the user has been inactive longer than the specified duration.
 # inactivity_timeout = "8h"
+
+# Refuses every SMS (plan §7.1); private.auth_send_sms_hook always returns an error.
+[auth.hook.send_sms]
+enabled = true
+uri = "pg-functions://postgres/private/auth_send_sms_hook"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
 # [auth.hook.before_user_created]

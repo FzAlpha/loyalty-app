@@ -68,8 +68,7 @@ exception when invalid_text_representation then
 end;
 $$;
 
--- Authorization helpers (§5). M1 stubs: deny by default until identity/roles land in M2,
--- which replaces the bodies of private.can and private.require_permission.
+-- Authentication helper. Authorization (private.can / private.require_permission) lives in 10_identity.
 create or replace function private.require_auth()
 returns uuid
 language plpgsql
@@ -82,33 +81,6 @@ declare
 begin
   if v_uid is null then
     perform private.raise_error('UNAUTHENTICATED');
-  end if;
-  return v_uid;
-end;
-$$;
-
-create or replace function private.can(p_permission text, p_business_id uuid default null)
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select false; -- M1 stub: no roles exist yet
-$$;
-
-create or replace function private.require_permission(p_permission text, p_business_id uuid default null)
-returns uuid
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-declare
-  v_uid uuid := private.require_auth();
-begin
-  if not private.can(p_permission, p_business_id) then
-    perform private.raise_error('FORBIDDEN', p_permission);
   end if;
   return v_uid;
 end;
