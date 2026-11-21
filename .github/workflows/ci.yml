@@ -32,8 +32,7 @@ jobs:
       - name: Export local connection env
         run: |
           supabase status -o env | grep -E '^[A-Z_]+=' | sed 's/"//g' > /tmp/ci/status.env
-          echo "status vars: $(cut -d= -f1 /tmp/ci/status.env | tr '
-' ' ')" | tee /tmp/ci/status.log
+          echo "status vars: $(cut -d= -f1 /tmp/ci/status.env | paste -sd ' ')" | tee /tmp/ci/status.log
           grep -q '^DB_URL=.' /tmp/ci/status.env || { echo "DB_URL missing from supabase status" | tee -a /tmp/ci/status.log; exit 1; }
           cat /tmp/ci/status.env >> "$GITHUB_ENV"
 
