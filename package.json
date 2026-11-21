@@ -1,0 +1,11 @@
+{
+  "name": "rewards-app",
+  "private": true,
+  "packageManager": "pnpm@12.21.0",
+  "scripts": {
+    "db:apply": "pnpm --filter @rewards/backend db:apply",
+    "db:seed": "pnpm --filter @rewards/backend db:seed",
+    "db:test": "pnpm --filter @rewards/backend db:test",
+    "codegen": "pnpm --filter @rewards/backend codegen"
+  }
+}

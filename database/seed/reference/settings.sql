@@ -1,0 +1,38 @@
+-- Global default settings (BACKEND_PLAN.md §3.2, retention §17.5).
+-- Re-running keeps existing values and only refreshes schema/description.
+-- Not seeded yet (values not decided): ratelimit.<action>, jobs.<name>.cron.
+insert into public.app_settings (key, value, value_schema, description) values
+  ('claims.ttl_seconds',              '600',              '{"type":"integer","minimum":1}', 'Claim QR lifetime in seconds'),
+  ('qr.prefix',                       '"GR"',             '{"type":"string","pattern":"^[A-Z]+$"}', 'Prefix written into new QR payloads'),
+  ('qr.accepted_prefixes',            '["GR"]',           '{"type":"array","minItems":1,"items":{"type":"string","pattern":"^[A-Z]+$"}}', 'Prefixes accepted when parsing QR payloads'),
+  ('qr.kind.card',                    '"C"',              '{"type":"string","minLength":1,"maxLength":1}', 'QR kind marker for cards'),
+  ('qr.kind.claim',                   '"Q"',              '{"type":"string","minLength":1,"maxLength":1}', 'QR kind marker for claims'),
+  ('qr.version.card',                 '1',                '{"type":"integer","minimum":1}', 'Card QR payload version'),
+  ('qr.version.claim',                '1',                '{"type":"integer","minimum":1}', 'Claim QR payload version'),
+  ('cards.token_bytes',               '16',               '{"type":"integer","minimum":16}', 'Random bytes per card token'),
+  ('cards.number_prefix',             '"GR"',             '{"type":"string","pattern":"^[A-Z]+$"}', 'Printed card number prefix'),
+  ('cards.number_digits',             '6',                '{"type":"integer","minimum":1}', 'Digits in printed card number'),
+  ('cards.reissue_requires_approval', 'false',            '{"type":"boolean"}', 'Card reissue needs owner approval'),
+  ('auth.lockout.max_failures',       '5',                '{"type":"integer","minimum":1}', 'Failed sign-ins before lockout'),
+  ('auth.lockout.window_seconds',     '900',              '{"type":"integer","minimum":1}', 'Window for counting failed sign-ins'),
+  ('auth.lockout.lock_seconds',       '900',              '{"type":"integer","minimum":1}', 'Lockout duration'),
+  ('auth.password.min_length',        '8',                '{"type":"integer","minimum":6}', 'Minimum password length (not below the Supabase Auth setting)'),
+  ('auth.recovery.code_ttl_seconds',  '900',              '{"type":"integer","minimum":1}', 'In-store recovery code lifetime'),
+  ('auth.recovery.code_max_attempts', '5',                '{"type":"integer","minimum":1}', 'Attempts per recovery code'),
+  ('auth.recovery.code_length',       '8',                '{"type":"integer","minimum":6}', 'Recovery code length'),
+  ('auth.recovery.remote_code_ttl_seconds',     '300',    '{"type":"integer","minimum":1}', 'Owner remote recovery code lifetime'),
+  ('auth.recovery.remote_daily_limit_per_owner', '5',     '{"type":"integer","minimum":0}', 'Owner remote recovery codes per day'),
+  ('redemption.bill_number_required', 'false',            '{"type":"boolean"}', 'Bill number required at redemption (overridable per business)'),
+  ('redemption.bill_amount_required', 'false',            '{"type":"boolean"}', 'Bill amount required at redemption (overridable per business)'),
+  ('locale.timezone',                 '"Asia/Kolkata"',   '{"type":"string","minLength":1}', 'Time zone for day/time windows and reports'),
+  ('retention.claim_tokens_days',     '90',               '{"type":"integer","minimum":1}', 'Provisional, pending legal review'),
+  ('retention.login_attempts_days',   '30',               '{"type":"integer","minimum":1}', 'Provisional, pending legal review'),
+  ('retention.deleted_account_days',  '30',               '{"type":"integer","minimum":1}', 'Provisional, pending legal review'),
+  ('retention.audit_logs_days',       '730',              '{"type":"integer","minimum":1}', 'Provisional, pending legal review'),
+  ('retention.unchecked_accounts_days', '30',             '{"type":"integer","minimum":1}', 'Provisional, pending legal review'),
+  ('retention.recovery_codes_days',   '30',               '{"type":"integer","minimum":1}', 'Provisional, pending legal review'),
+  ('retention.rate_limit_counters_days', '30',            '{"type":"integer","minimum":1}', 'Provisional, pending legal review'),
+  ('offers.cross_business_enabled',   'false',            '{"type":"boolean"}', 'Phase-2 switch for cross-business offers')
+on conflict (key, coalesce(scope_business_id, '00000000-0000-0000-0000-000000000000'::uuid)) do update
+  set value_schema = excluded.value_schema,
+      description  = excluded.description;

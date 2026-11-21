@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.2.0
+
+      - name: Ensure psql
+        run: command -v psql || (sudo apt-get update && sudo apt-get install -y postgresql-client)
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Export local connection env
+        run: supabase status -o env | grep -E '^[A-Z_]+=' | sed 's/"//g' >> "$GITHUB_ENV"
+
+      - name: Apply schema (database/schema)
+        run: npm run db:apply
+
+      - name: Seed reference data
+        run: npm run db:seed
+
+      - name: pgTAP tests (database/tests)
+        run: npm run db:test
+
+      - name: Probe declarative schema wiring (M0, informational)
+        continue-on-error: true
+        run: timeout 300 supabase db schema declarative sync < /dev/null
+
+      - name: Codegen
+        run: npm run codegen
+
+      - name: Upload generated contracts
+        uses: actions/upload-artifact@v4
+        with:
+          name: contracts
+          path: backend/contracts/
+
+      # git diff ignores untracked files, so this passes until contracts are first committed.
+      - name: Codegen drift check
+        run: npm run codegen:check

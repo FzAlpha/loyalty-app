@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+!.env.example
+backend/supabase/.temp/
+backend/supabase/.branches/
+.DS_Store
+# Original requirements PDF stays local (may be confidential)
+Group_Rewards_App_Updated_Technical_Plan.pdf
