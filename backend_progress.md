@@ -103,10 +103,10 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] pgTAP 50_offers: 25-case eligibility table + CRUD/RLS/storage (CI green)
   - [ ] customer_groups data file + group membership management RPC (not in plan yet)
   - [ ] Storage upload over HTTP not tested
-- [~] M7 Claims & redemption
+- [x] M7 Claims & redemption (defaults + job schedules pending)
   - [x] 60_claims: claim_tokens, create_claim_token, preview_claim, expire/purge jobs
   - [x] 70_redemptions: redemptions, api.redeem_claim (locked, idempotent, limits re-checked)
-  - [~] pgTAP 60_claims (58 checks) + Deno concurrency suite — CI run pending
+  - [x] pgTAP 60_claims (58 checks) + Deno concurrency suite (8 checks) green in CI
   - [ ] Approve new defaults: ratelimit.claim_create 30/h; min purchase requires bill amount
   - [ ] Job schedules (expire_claims, purge_claim_tokens) not seeded
 - [ ] M8 Reporting & audit
