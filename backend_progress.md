@@ -18,7 +18,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [x] M0: Expo SDK 58 + pnpm isolated linker bundles workspace package
 - [ ] M0: Expo native/EAS build (no Android SDK here; M1)
 - [x] M0: folder wiring — declarative_schema_path to database/schema verified in CI
-- [ ] M0: delete spike project after tests
+- [x] M0: spike project deleted
 
 ## Decisions
 - 2026-11-22: Approved client-only error codes NETWORK_ERROR, INVALID_RESPONSE; unknown server errors → UNKNOWN_ERROR_CODE
@@ -136,7 +136,8 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [!] Hosted Vault secrets + JOBS_RUNNER_SECRET — needs staging project
 - [ ] M10 Slow-network/low-end tests, runbooks, production cut-over — paused until frontends built
 - [~] Frontends (docs/FRONTEND_PLAN.md)
-  - [ ] Staging Supabase project (remove M0 spike first)
+  - [x] Staging project rewards-app-staging (Free, ap-south-1, prolink)
+  - [ ] Staging: deploy schema, seed, functions, auth config, secrets
   - [x] F0 backend/contracts committed + drift check
   - [x] F0 packages/shared + packages/api, unit tests — green in CI
   - [x] F0 client-only error codes NETWORK_ERROR/INVALID_RESPONSE — approved
