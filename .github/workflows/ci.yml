@@ -30,6 +30,13 @@ jobs:
           msg=$(tail -n 60 check.log | awk '{ gsub(/%/, "%25"); gsub(/\r/, ""); printf "%s%%0A", $0 }')
           echo "::notice title=deno-check.log::$msg"
 
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Security regression scan (service-role key, phone-verified labels)
+        run: bash backend/tests/security_scan.sh
+
   database:
     runs-on: ubuntu-latest
     defaults:
@@ -60,6 +67,14 @@ jobs:
           open(p, "w").write(s.replace(old, new, 1))
           EOF
           echo "SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN=ci-dummy-not-a-secret" >> "$GITHUB_ENV"
+
+      - name: Edge Function secrets (CI-only, random per run)
+        # functions/.env is gitignored and loaded by supabase start for the edge runtime.
+        run: |
+          secret=$(openssl rand -hex 32)
+          echo "::add-mask::$secret"
+          echo "JOBS_RUNNER_SECRET=$secret" > supabase/functions/.env
+          echo "JOBS_RUNNER_SECRET=$secret" >> "$GITHUB_ENV"
 
       - name: Start local Supabase
         # PostgREST exposes the api schema, which db:apply creates after start; it retries until then.

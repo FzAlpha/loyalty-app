@@ -41,6 +41,10 @@ insert into public.error_codes (code, http_status, description) values
   ('BILL_AMOUNT_REQUIRED', 400, 'Bill amount is required'),
   ('BELOW_MIN_PURCHASE', 409, 'Bill amount is below the offer minimum'),
   ('IDEMPOTENCY_KEY_REUSED', 409, 'Idempotency key was already used for a different request'),
+  ('CARD_NOT_BLOCKABLE', 409, 'Card is already blocked or retired'),
+  ('CARD_NOT_REISSUABLE', 409, 'Card has no customer to move to a new card'),
+  ('ACCOUNT_DELETION_PENDING', 409, 'Account deletion is already in progress'),
+  ('JOBS_NOT_CONFIGURED', 503, 'Scheduled job runner is not configured'),
   ('INTERNAL_ERROR',     500, 'Unexpected server error')
 on conflict (code) do update
   set http_status = excluded.http_status,

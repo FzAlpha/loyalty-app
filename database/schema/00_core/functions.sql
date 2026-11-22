@@ -128,3 +128,55 @@ stable
 security definer
 set search_path = ''
 as $$ select private.get_setting(p_key, p_business_id); $$;
+
+-- Change a setting (plan §5, settings.manage at that scope; p_business_id null = global value).
+-- The key must already exist globally (keys come from the seed). The value is checked against the
+-- key's value_schema first so callers get VALIDATION_FAILED, not a raw check violation.
+-- jobs.* keys are global only. The row audit trigger records before/after.
+create or replace function api.set_setting(p_key text, p_value jsonb, p_business_id uuid default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := private.require_auth();
+  v_global public.app_settings;
+  v_row public.app_settings;
+begin
+  if not private.can('settings.manage', p_business_id) then
+    perform private.raise_error('FORBIDDEN', 'settings.manage');
+  end if;
+  if p_value is null then
+    perform private.raise_error('VALIDATION_FAILED', 'value');
+  end if;
+  select * into v_global from public.app_settings where key = p_key and scope_business_id is null for update;
+  if not found then
+    perform private.raise_error('NOT_FOUND', 'setting');
+  end if;
+  if p_business_id is not null then
+    if not exists (select 1 from public.businesses where id = p_business_id) then
+      perform private.raise_error('VALIDATION_FAILED', 'business_id');
+    end if;
+    if p_key like 'jobs.%' then
+      perform private.raise_error('VALIDATION_FAILED', 'jobs settings are global only');
+    end if;
+  end if;
+  if not extensions.jsonb_matches_schema(v_global.value_schema::json, p_value) then
+    perform private.raise_error('VALIDATION_FAILED', 'value does not match schema');
+  end if;
+
+  if p_business_id is null then
+    update public.app_settings set value = p_value, updated_by = v_uid
+    where id = v_global.id returning * into v_row;
+  else
+    insert into public.app_settings (key, scope_business_id, value, value_schema, description, updated_by)
+    values (p_key, p_business_id, p_value, v_global.value_schema, v_global.description, v_uid)
+    on conflict (key, coalesce(scope_business_id, '00000000-0000-0000-0000-000000000000'::uuid))
+    do update set value = excluded.value, updated_by = excluded.updated_by
+    returning * into v_row;
+  end if;
+  return jsonb_build_object('key', v_row.key, 'business_id', v_row.scope_business_id, 'value', v_row.value,
+                            'updated_at', v_row.updated_at);
+end;
+$$;

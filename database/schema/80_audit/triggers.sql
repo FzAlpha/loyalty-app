@@ -1,4 +1,4 @@
--- Append-only. The audit_retention job (M8) will need its own controlled delete path.
+-- Append-only. The only delete path is audit.purge_expired (audit_retention job, rows past retention).
 drop trigger if exists block_update_delete on audit.audit_logs;
 create trigger block_update_delete before update or delete on audit.audit_logs
   for each row execute function audit.block_change();

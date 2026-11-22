@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # HTTP tests for the M2 Edge Functions against the local stack (supabase start serves them).
-# Covers auth-register, auth-sign-in (incl. lockout), auth-recover and staff-admin.
+# Covers auth-register, auth-sign-in (incl. lockout), auth-recover, staff-admin, card-batches,
+# reports-export, account-deletion and jobs-runner.
 # Needs API_URL, FUNCTIONS_URL, ANON_KEY, SERVICE_ROLE_KEY, DB_URL (supabase status -o env).
 # Local instance only: all phones and passwords are random throwaway test values.
 set -euo pipefail
@@ -159,5 +160,28 @@ r=$(call POST reports-export "$to" "$rb"); check "owner exports redemptions CSV"
 case "$(field "$r" data.csv)" in '"redeemed_at","business",'*) echo "ok - CSV has header row";; *) echo "not ok - CSV header ($r)"; fail=1;; esac
 check "owner grouped export" 200 "$(call POST reports-export "$to" '{"report":"redemptions_grouped","group_by":"offer","from":"2026-01-01T00:00:00Z","to":"2026-02-01T00:00:00Z"}')"
 check "reversed range is VALIDATION_FAILED" 400 VALIDATION_FAILED   "$(call POST reports-export "$to" '{"report":"redemptions","from":"2026-02-01T00:00:00Z","to":"2026-01-01T00:00:00Z"}')"
+
+# ---------------------------------------------------------------- account-deletion + jobs-runner (M9)
+pd=$(phone); pwd_=$(pw)
+check "deletion customer registers" 200 "$(register "$pd" "$pwd_")"
+r=$(signin "$pd" "$pwd_"); check "deletion customer signs in" 200 "$r"
+td=$(field "$r" data.access_token); rtd=$(field "$r" data.refresh_token)
+ud=$(sql "select id from public.profiles where phone_e164 = '$pd'")
+s=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$FUNCTIONS_URL/account-deletion" -H 'Content-Type: application/json' -d '{}')
+[ "$s" = 401 ] && echo "ok - account-deletion without JWT is 401" || { echo "not ok - account-deletion without JWT (got $s)"; fail=1; }
+r=$(call POST account-deletion "$td" '{}'); check "customer requests account deletion" 200 "$r"
+[ "$(field "$r" data.status)" = requested ] && echo "ok - deletion status requested" || { echo "not ok - deletion status ($r)"; fail=1; }
+[ "$(sql "select account_status from public.profiles where id = '$ud'")" = deletion_pending ]   && echo "ok - profile is deletion_pending" || { echo "not ok - profile status after deletion request"; fail=1; }
+revoked "deletion revokes the session" "$rtd" "$td"
+r=$(call POST account-deletion "$td" '{}'); [ "${r%% *}" != 200 ] && echo "ok - second deletion call refused (${r%% *})"   || { echo "not ok - second deletion call ($r)"; fail=1; }
+r=$(signin "$pd" "$pwd_"); [ "${r%% *}" != 200 ] && echo "ok - deleted customer cannot sign in (${r%% *})"   || { echo "not ok - deleted customer signed in ($r)"; fail=1; }
+
+jr() { curl -s -o /tmp/fn.json -w '%{http_code}' -X POST "$FUNCTIONS_URL/jobs-runner" -H "apikey: $ANON_KEY"   -H "Authorization: Bearer $ANON_KEY" -H 'Content-Type: application/json' -H "x-jobs-secret: $1"   -d '{"job":"process_deletions"}'; echo " $(cat /tmp/fn.json)"; }
+check "jobs-runner rejects a wrong secret" 403 FORBIDDEN "$(jr "wrong-$(rnd 16)")"
+sql "update public.deletion_requests set process_after = now() - interval '1 second' where user_id = '$ud'" >/dev/null
+r=$(jr "${JOBS_RUNNER_SECRET:-}"); check "jobs-runner processes due deletions" 200 "$r"
+[ "$(field "$r" data.completed)" -ge 1 ] 2>/dev/null && echo "ok - jobs-runner completed $(field "$r" data.completed)"   || { echo "not ok - jobs-runner completed count ($r)"; fail=1; }
+[ "$(sql "select (deleted_at is not null)::text from auth.users where id = '$ud'")" = true ]   && echo "ok - auth user soft-deleted" || { echo "not ok - auth user deleted_at ($(sql "select deleted_at from auth.users where id = '$ud'"))"; fail=1; }
+[ "$(sql "select account_status from public.profiles where id = '$ud'")" = deleted ]   && echo "ok - profile is deleted" || { echo "not ok - profile status after jobs-runner"; fail=1; }
 
 exit $fail

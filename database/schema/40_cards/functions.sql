@@ -337,3 +337,157 @@ set search_path = ''
 as $$
   select id from public.cards where current_customer_id = p_customer_id and status = 'active' limit 1;
 $$;
+
+-- ---------------------------------------------------------------- block / reissue (M9, plan §5)
+-- Internal: blocks a card row and revokes its live assignment. Caller has locked the card.
+create or replace function private.block_card_row(p_card_id uuid, p_reason text)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  update public.card_assignments set status = 'revoked', reason = p_reason, decided_at = now()
+  where card_id = p_card_id and status in ('pending', 'approved');
+  update public.cards set status = 'blocked', blocked_reason = p_reason where id = p_card_id;
+$$;
+
+-- Block (lost/stolen/abuse). The card keeps current_customer_id, so the customer cannot self-link
+-- another card; staff move them to a new card with api.reissue_card.
+create or replace function api.block_card(p_card_id uuid, p_business_id uuid, p_reason text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := private.require_permission('card.block', p_business_id);
+  v_card public.cards;
+begin
+  if p_reason is null or char_length(btrim(p_reason)) not between 1 and 500 then
+    perform private.raise_error('VALIDATION_FAILED', 'reason');
+  end if;
+  select * into v_card from public.cards where id = p_card_id for update;
+  if not found then
+    perform private.raise_error('NOT_FOUND', 'card');
+  end if;
+  if v_card.status not in ('unassigned', 'pending', 'active') then
+    perform private.raise_error('CARD_NOT_BLOCKABLE');
+  end if;
+  perform private.block_card_row(v_card.id, btrim(p_reason));
+  if v_card.current_customer_id is not null then
+    perform private.set_membership_status(v_card.current_customer_id, 'blocked');
+  end if;
+  perform audit.write('card.blocked', 'card', v_card.id, jsonb_build_object('status', v_card.status),
+    jsonb_build_object('status', 'blocked', 'reason', btrim(p_reason), 'customer_id', v_card.current_customer_id),
+    p_business_id);
+  return jsonb_build_object('card_id', v_card.id, 'status', 'blocked', 'customer_id', v_card.current_customer_id);
+end;
+$$;
+
+-- Account deletion (90_accounts): block the customer's card, never reuse it. Returns the card id.
+create or replace function private.block_customer_card(p_customer_id uuid, p_reason text)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_card public.cards;
+begin
+  select * into v_card from public.cards where current_customer_id = p_customer_id for update;
+  if not found then
+    return null;
+  end if;
+  if v_card.status in ('unassigned', 'pending', 'active') then
+    perform private.block_card_row(v_card.id, p_reason);
+  end if;
+  return v_card.id;
+end;
+$$;
+
+-- Reissue: move the customer from their current card to a new unassigned card (scanned QR).
+-- Old card -> blocked, unlinked, never reused. New card -> pending (in-store approval, M4 flow)
+-- when cards.reissue_requires_approval is true or the customer has no passed identity check;
+-- otherwise straight to active.
+create or replace function api.reissue_card(
+  p_old_card_id uuid,
+  p_new_qr_payload text,
+  p_business_id uuid,
+  p_reason text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := private.require_permission('card.reissue', p_business_id);
+  v_old public.cards;
+  v_new public.cards;
+  v_hash bytea;
+  v_customer uuid;
+  v_pending boolean;
+  v_assignment uuid;
+  v_reason text := btrim(p_reason);
+begin
+  if p_business_id is null then
+    perform private.raise_error('VALIDATION_FAILED', 'business_id required');
+  end if;
+  if v_reason is null or char_length(v_reason) not between 1 and 500 then
+    perform private.raise_error('VALIDATION_FAILED', 'reason');
+  end if;
+  v_hash := private.parse_card_qr(p_new_qr_payload);
+
+  select * into v_old from public.cards where id = p_old_card_id for update;
+  if not found then
+    perform private.raise_error('NOT_FOUND', 'card');
+  end if;
+  v_customer := v_old.current_customer_id;
+  if v_customer is null or v_old.status not in ('pending', 'active', 'blocked') then
+    perform private.raise_error('CARD_NOT_REISSUABLE');
+  end if;
+  if not exists (select 1 from public.profiles where id = v_customer and account_status = 'active') then
+    perform private.raise_error('ACCOUNT_INACTIVE');
+  end if;
+
+  select * into v_new from public.cards where token_hash = v_hash for update;
+  if not found then
+    perform private.raise_error('INVALID_QR');
+  end if;
+  if v_new.id = v_old.id or v_new.status <> 'unassigned' then
+    perform private.raise_error('CARD_NOT_AVAILABLE');
+  end if;
+
+  update public.card_assignments set status = 'revoked', reason = 'reissued: ' || v_reason, decided_at = now()
+  where card_id = v_old.id and status in ('pending', 'approved');
+  update public.cards
+  set status = 'blocked', blocked_reason = coalesce(blocked_reason, 'reissued: ' || v_reason),
+      current_customer_id = null
+  where id = v_old.id;
+
+  v_pending := (private.get_setting('cards.reissue_requires_approval'))::boolean
+               or not private.has_passed_identity_check(v_customer);
+  if v_pending then
+    update public.cards set status = 'pending', current_customer_id = v_customer where id = v_new.id;
+    insert into public.card_assignments (card_id, customer_id, reason)
+    values (v_new.id, v_customer, 'reissue of ' || v_old.card_number)
+    returning id into v_assignment;
+    perform private.set_membership_status(v_customer, 'pending');
+  else
+    update public.cards set status = 'active', current_customer_id = v_customer where id = v_new.id;
+    insert into public.card_assignments (card_id, customer_id, status, decided_by, decided_at,
+                                         decision_business_id, reason)
+    values (v_new.id, v_customer, 'approved', v_uid, now(), p_business_id, 'reissue of ' || v_old.card_number)
+    returning id into v_assignment;
+    perform private.set_membership_status(v_customer, 'active');
+  end if;
+
+  perform audit.write('card.reissued', 'card', v_new.id,
+    jsonb_build_object('old_card_id', v_old.id, 'old_status', v_old.status),
+    jsonb_build_object('new_card_id', v_new.id, 'status', case when v_pending then 'pending' else 'active' end,
+                       'customer_id', v_customer, 'assignment_id', v_assignment, 'reason', v_reason),
+    p_business_id);
+  return jsonb_build_object('old_card_id', v_old.id, 'card_id', v_new.id, 'card_number', v_new.card_number,
+                            'assignment_id', v_assignment,
+                            'status', case when v_pending then 'pending' else 'active' end);
+end;
+$$;

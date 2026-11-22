@@ -459,3 +459,11 @@ verify_jwt = true
 # reports-export: gateway JWT check; report RPCs check report.view as the caller.
 [functions.reports-export]
 verify_jwt = true
+
+# account-deletion: gateway JWT check; request_account_deletion acts only on the caller.
+[functions.account-deletion]
+verify_jwt = true
+
+# jobs-runner: called by pg_cron via pg_net with no user JWT; checks x-jobs-secret inside.
+[functions.jobs-runner]
+verify_jwt = false

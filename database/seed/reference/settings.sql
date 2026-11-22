@@ -1,6 +1,7 @@
 -- Global default settings (BACKEND_PLAN.md §3.2, retention §17.5).
 -- Re-running keeps existing values and only refreshes schema/description.
--- Not seeded yet (values not decided): jobs.<name>.cron.
+-- jobs.<name>.cron: UTC cron expressions (approved M9). Inserting or updating a global jobs.*.cron
+-- row (re)registers its pg_cron entry (99_jobs trigger).
 -- ratelimit.<action>: token bucket, `capacity` requests refilled evenly over `per_seconds`.
 insert into public.app_settings (key, value, value_schema, description) values
   ('claims.ttl_seconds',              '600',              '{"type":"integer","minimum":1}', 'Claim QR lifetime in seconds'),
@@ -13,7 +14,7 @@ insert into public.app_settings (key, value, value_schema, description) values
   ('cards.token_bytes',               '16',               '{"type":"integer","minimum":16}', 'Random bytes per card token'),
   ('cards.number_prefix',             '"GR"',             '{"type":"string","pattern":"^[A-Z]+$"}', 'Printed card number prefix'),
   ('cards.number_digits',             '6',                '{"type":"integer","minimum":1}', 'Digits in printed card number'),
-  ('cards.reissue_requires_approval', 'false',            '{"type":"boolean"}', 'Card reissue needs owner approval'),
+  ('cards.reissue_requires_approval', 'true',             '{"type":"boolean"}', 'Reissued card goes to pending and needs in-store approval'),
   ('cards.batch_max_quantity',        '5000',             '{"type":"integer","minimum":1}', 'Max cards per batch request'),
   ('auth.lockout.max_failures',       '5',                '{"type":"integer","minimum":1}', 'Failed sign-ins before lockout'),
   ('auth.lockout.window_seconds',     '900',              '{"type":"integer","minimum":1}', 'Window for counting failed sign-ins'),
@@ -49,6 +50,15 @@ insert into public.app_settings (key, value, value_schema, description) values
   ('report.max_range_days',           '366',              '{"type":"integer","minimum":1}', 'Longest date range one report may cover'),
   ('report.export_max_rows',          '10000',            '{"type":"integer","minimum":1}', 'Max rows in one CSV export'),
   ('audit.page_size_max',             '200',              '{"type":"integer","minimum":1}', 'Max audit log rows per page'),
+  ('jobs.expire_claims.cron',            '"*/5 * * * *"', '{"type":"string","minLength":9}', 'pg_cron schedule (UTC)'),
+  ('jobs.expire_recovery_codes.cron',    '"*/5 * * * *"', '{"type":"string","minLength":9}', 'pg_cron schedule (UTC)'),
+  ('jobs.purge_claim_tokens.cron',       '"30 21 * * *"', '{"type":"string","minLength":9}', 'pg_cron schedule (UTC)'),
+  ('jobs.purge_login_attempts.cron',     '"30 21 * * *"', '{"type":"string","minLength":9}', 'pg_cron schedule (UTC)'),
+  ('jobs.purge_rate_limit_buckets.cron', '"30 21 * * *"', '{"type":"string","minLength":9}', 'pg_cron schedule (UTC)'),
+  ('jobs.purge_unchecked_accounts.cron', '"30 21 * * *"', '{"type":"string","minLength":9}', 'pg_cron schedule (UTC)'),
+  ('jobs.process_deletions.cron',        '"0 22 * * *"',  '{"type":"string","minLength":9}', 'pg_cron schedule (UTC)'),
+  ('jobs.audit_retention.cron',          '"30 22 * * 0"', '{"type":"string","minLength":9}', 'pg_cron schedule (UTC)'),
+  ('jobs.process_deletions.batch_size',  '50',            '{"type":"integer","minimum":1,"maximum":1000}', 'Deletion requests handled per jobs-runner call'),
   ('offers.cross_business_enabled',   'false',            '{"type":"boolean"}', 'Phase-2 switch for cross-business offers')
 on conflict (key, coalesce(scope_business_id, '00000000-0000-0000-0000-000000000000'::uuid)) do update
   set value_schema = excluded.value_schema,

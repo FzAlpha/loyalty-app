@@ -248,7 +248,7 @@ All primary keys are `uuid` (`gen_random_uuid()`). All tables get `created_at` a
 - `ops.rate_limit_buckets(bucket_key, tokens, updated_at)` for a Postgres token bucket. Redis is not needed at this scale.
 
 ### accounts
-- `deletion_requests(id, user_id, status enum[requested,processing,completed,failed], requested_at, completed_at, error)`
+- `deletion_requests(id, user_id unique, reason enum[customer_request,unchecked_account], status enum[requested,processing,completed,failed], requested_by, requested_at, process_after, attempts, completed_at, error)`
 
 ### phase 2 (schema reserved, not built)
 - `purchases`, cross-business offers (behind `offers.cross_business_enabled`).
@@ -302,14 +302,14 @@ Every RPC: `SECURITY DEFINER`, `SET search_path = ''`, validates input, calls `r
 | `api.create_claim_token(offer_id)` | RPC | Eligibility engine → revoke the previous open token → 32-byte random secret (`gen_random_bytes`) → store `sha256` → `expires_at = now() + get_setting('claims.ttl_seconds')` → return the QR payload **once** |
 | `api.preview_claim(qr_payload)` | RPC (staff) | Returns a safe preview plus flags: `EXPIRED`, `USED`, `WRONG_BUSINESS`, `NOT_ELIGIBLE`. Does not consume the token |
 | `api.redeem_claim(qr_payload, idempotency_key, bill_number?, bill_amount?)` | RPC (staff) | See §8: atomic, locked and idempotent |
-| `api.block_card` / `api.reissue_card` | RPC | Owner permissions; reissue revokes the old assignment and links the new card (approval required or not, per setting) |
+| `api.block_card(card_id, business_id, reason)` / `api.reissue_card(old_card_id, new_qr_payload, business_id, reason)` | RPC | `card.block` / `card.reissue` (owner). Block keeps the card linked to its customer, blocks the membership and revokes open claims. Reissue blocks and unlinks the old card, then links the new unassigned card: `pending` (in-store approval) while `cards.reissue_requires_approval` = true (default); `active` only when the setting is false and the customer has a passed identity check |
 | `api.upsert_offer(offer jsonb)`, `api.set_offer_status(offer_id, status)` | RPC | `offer.manage` scoped to the offer's business. Upsert takes the full offer plus optional `schedules[]` / `group_ids[]` (omitted = unchanged); new offers are `draft`; `archived` is final |
-| `api.update_business` | RPC | `business.manage` |
-| `api.set_setting(key, value, business_id?)` | RPC | `settings.manage`; validates against `value_schema` |
+| `api.update_business(business_id, patch jsonb)` | RPC | `business.manage`; patch of `name`, `address`, `timezone` (IANA name checked), `logo_path`; slug is immutable; null clears a nullable field; audited by the row trigger |
+| `api.set_setting(key, value, business_id?)` | RPC | `settings.manage` (global or for that business); key must exist; validates against `value_schema`; `jobs.*` are global only and re-register the cron entry |
 | `staff-admin` (create / reassign / enable / disable / reset credential) | Edge Fn | Owner only; Auth Admin API (`createUser`, `updateUserById`). Reset sets a temporary password and `staff.must_change_password=true` (app forces a change on next sign-in). Disable sets `staff.is_active=false`, applies an Auth ban (`updateUserById` + `ban_duration`) and revokes sessions; then calls the staff RPC for DB changes and audit |
-| `api.request_account_deletion()` + `account-deletion` | RPC + Edge Fn | Marks the request, anonymises the profile, retires the card per policy, keeps anonymised redemptions; the job deletes the auth user after the configured retention |
+| `api.request_account_deletion()` + `account-deletion` | RPC + Edge Fn | Customers only, live session. At once: anonymises profile and auth user (name, DOB, phone freed, metadata cleared), bans and revokes sessions, **blocks the card (never reused)**, revokes claims and recovery codes; redemptions kept (linked to the anonymised profile). `process_after = now() + retention.deleted_account_days`; then `process_deletions` → `jobs-runner` soft-deletes the auth user (Auth Admin `deleteUser(id, true)`) and marks the profile `deleted` |
 | `card-batches` (create / export) | Edge Fn | Owner; generates N tokens and stores only hashes; returns the **one-time** CSV (card_number, qr_payload) for the Python tool; export count is audited |
-| `api.report_*` / `reports-export` | RPC + Edge Fn | Totals, redemptions by day/month/business/offer/executive, signups by month, birthdays; CSV streaming |
+| `api.report_*` / `reports-export` | RPC + Edge Fn | Totals, redemptions by day/month/business/offer/executive, signups by month, birthdays; CSV capped at `report.export_max_rows` (not streamed), range capped at `report.max_range_days` |
 | `api.list_audit_logs(filters)` | RPC | `audit.view` |
 
 ### 6.1 Eligibility engine: one function, used everywhere
@@ -424,7 +424,9 @@ api.redeem_claim(payload, idempotency_key, bill_number, bill_amount):
 
 Nightly database backups are **not** a pg_cron job: they run from `.github/workflows/` (§14). Dump expiry (`BACKUP_RETENTION_DAYS`, 30) is enforced by the backup workflow and/or a lifecycle rule on the external bucket, not by the database.
 
-`private.register_jobs()` reads the settings and (re)creates the cron entries, so a schedule change is a settings update.
+`private.register_jobs()` reads the settings and (re)creates the cron entries `rewards.<job>` (command `select private.run_job('<job>')`), so a schedule change is a settings update (a trigger on `app_settings` re-registers the job). Schedules are UTC (approved M9): `expire_claims`, `expire_recovery_codes` `*/5 * * * *`; the four `purge_*` jobs `30 21 * * *`; `process_deletions` `0 22 * * *`; `audit_retention` `30 22 * * 0`.
+
+`process_deletions` needs two **Vault** secrets per hosted project, `jobs_runner_url` (project URL) and `jobs_runner_secret`, and the same value as the Edge Function secret `JOBS_RUNNER_SECRET` (`supabase secrets set`, at least 32 chars). Without them the job raises `JOBS_NOT_CONFIGURED` when work is due. `jobs-runner` (`verify_jwt = false`) accepts only the `x-jobs-secret` header (constant-time compare) and claims at most `jobs.process_deletions.batch_size` requests per run (`for update skip locked`); failures are recorded and retried on the next run.
 
 ---
 
@@ -497,7 +499,8 @@ Each layer has one job, so nothing is defined twice:
 | 5–6 | Offers: CRUD, schedules, groups, eligibility engine, storage | Eligibility table tests pass |
 | 7 | Claims and redemption: create, preview, redeem, idempotency, jobs | Concurrency suite passes |
 | 8 | Reporting, CSV export, audit viewer RPCs | Owner reports verified |
-| 9–10 | Security hardening, load/slow-network tests, production cut-over, runbooks | All PDF §12 criteria green |
+| 9 | Backend gaps: block/reissue card, update business, set setting, account deletion + `jobs-runner`, cron registration, security scan in CI, §12 acceptance map (`docs/acceptance-map.md`) | pgTAP + HTTP tests green; every §12 criterion mapped |
+| 10 | Slow-network and low-end Android tests (needs frontends), runbooks, production cut-over | All PDF §12 criteria green |
 
 ---
 
@@ -528,6 +531,10 @@ Each layer has one job, so nothing is defined twice:
 | 20 | Auth build timing | Auth architecture not implemented until M0 findings are available |
 | 21 | Build order | Plan order kept: M1 foundation first; `packages/api` functions written as each module lands (21 Nov) |
 | 22 | Testing | No local Docker; DB and Edge Function tests run in GitHub Actions (21 Nov) |
+| 23 | Reports (M8) | `report.max_range_days` 366, `report.export_max_rows` 10000, `audit.page_size_max` 200; CSV capped, not streamed (22 Nov) |
+| 24 | Deletion (M9) | Card blocked and never reused; redemptions kept, anonymised (22 Nov) |
+| 25 | Reissue (M9) | Reissued card goes to `pending`; `cards.reissue_requires_approval` = true (22 Nov) |
+| 26 | Job schedules (M9) | `jobs.<name>.cron` settings, UTC, values in §9 (22 Nov) |
 
 ### 16.2 Still open
 1. **Backup storage provider** (which client-owned cloud account/bucket) and **restore-test cadence** (proposed monthly).
@@ -582,6 +589,15 @@ Figures come from 2026 third-party summaries, not from Supabase directly:
 - In `auth-recover` the code is spent before the password update; if the update fails, staff must issue a new code.
 - Edge Functions are type-checked and HTTP-tested in CI (backend/tests/edge_functions.sh: register, sign-in + lockout, recover, staff-admin) against the local stack. Local stack only: hosted function behaviour is not tested.
 - Local stack (CLI v3.2.0) disables phone login unless an `[auth.sms.<provider>]` block is enabled; the send_sms hook does not count. So local phone + password sign-in is off and the GoTrue e2e sign-in checks fail. Hosted is unaffected (M0). CI enables a Twilio block with fake values in the runner copy only (approved 2026-11-21); the send_sms hook still refuses all SMS. The tracked config.toml keeps Twilio off, so local dev outside CI has no phone login.
+
+### 17.9 M9 limitations (as built)
+- Audit rows keep full before/after rows (including name and phone) until `retention.audit_logs_days`; deletion does not rewrite audit history. Backup dumps keep data up to `BACKUP_RETENTION_DAYS`. `identity_checks.note` may hold personal data. All for the legal review (§16.2).
+- pg_cron, pg_net and Vault are tested on the local stack only; availability and behaviour on the hosted Free plan are not verified. The pg_cron → pg_net → `jobs-runner` path is not exercised end to end in CI (pg_net sends after commit; CI calls `jobs-runner` directly).
+- The auth user is soft-deleted (`deleteUser(id, true)`): GoTrue keeps an obfuscated row. Behaviour verified on the local stack only.
+- A request left in `processing` (for example the function crashed mid-run) is not retried automatically; it needs a manual reset (M10 runbook).
+- `purge_unchecked_accounts` also blocks a pending card of the purged account.
+- Seed values are inserted only if missing, so changing a seeded default (e.g. `cards.reissue_requires_approval`) does not update an existing database; use `api.set_setting`.
+- `security_scan.sh` greps source folders; `frontend/` is still empty, so it proves nothing about bundles yet.
 
 ### 17.4 pnpm workspaces
 - Adds `pnpm-workspace.yaml`, root `package.json` (scripts only) and `.npmrc` (§1).

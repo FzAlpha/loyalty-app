@@ -265,3 +265,74 @@ begin
   return jsonb_build_object('ok', true, 'user_id', v_user);
 end;
 $$;
+
+-- ---------------------------------------------------------------- account deletion (used by 90_accounts)
+create or replace function private.revoke_user_recovery_codes(p_user_id uuid)
+returns integer
+language sql
+security definer
+set search_path = ''
+as $$
+  with x as (update ops.recovery_codes set status = 'revoked'
+             where user_id = p_user_id and status = 'open' returning 1)
+  select count(*)::integer from x;
+$$;
+
+-- The lockout counter is keyed by phone number, so it is personal data of the deleted account.
+create or replace function private.forget_login_attempts(p_phone_e164 text)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  delete from ops.login_attempts where phone_e164 = p_phone_e164;
+$$;
+
+-- ---------------------------------------------------------------- jobs (§9; run by 99_jobs)
+
+-- open codes past expiry -> expired; codes no longer open are deleted retention.recovery_codes_days
+-- after use or expiry (audit rows remain).
+create or replace function private.expire_recovery_codes()
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_expired integer;
+  v_deleted integer;
+begin
+  update ops.recovery_codes set status = 'expired' where status = 'open' and expires_at <= now();
+  get diagnostics v_expired = row_count;
+  delete from ops.recovery_codes
+  where status <> 'open'
+    and coalesce(used_at, expires_at)
+        < now() - make_interval(days => (private.get_setting('retention.recovery_codes_days'))::integer);
+  get diagnostics v_deleted = row_count;
+  return v_expired + v_deleted;
+end;
+$$;
+
+create or replace function private.purge_login_attempts()
+returns integer
+language sql
+security definer
+set search_path = ''
+as $$
+  with x as (delete from ops.login_attempts
+             where updated_at < now() - make_interval(days => (private.get_setting('retention.login_attempts_days'))::integer)
+             returning 1)
+  select count(*)::integer from x;
+$$;
+
+create or replace function private.purge_rate_limit_buckets()
+returns integer
+language sql
+security definer
+set search_path = ''
+as $$
+  with x as (delete from ops.rate_limit_buckets
+             where updated_at < now() - make_interval(days => (private.get_setting('retention.rate_limit_counters_days'))::integer)
+             returning 1)
+  select count(*)::integer from x;
+$$;

@@ -16,3 +16,7 @@ revoke all on function api.approve_card(uuid, uuid, public.identity_evidence[], 
 grant execute on function api.approve_card(uuid, uuid, public.identity_evidence[], text) to authenticated;
 revoke all on function api.reject_card(uuid, uuid, text) from public, anon;
 grant execute on function api.reject_card(uuid, uuid, text) to authenticated;
+revoke all on function api.block_card(uuid, uuid, text) from public, anon;
+grant execute on function api.block_card(uuid, uuid, text) to authenticated;
+revoke all on function api.reissue_card(uuid, text, uuid, text) from public, anon;
+grant execute on function api.reissue_card(uuid, text, uuid, text) to authenticated;

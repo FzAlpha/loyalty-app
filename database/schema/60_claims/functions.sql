@@ -189,7 +189,7 @@ as $$
   update public.claim_tokens set status = 'used', used_at = now() where id = p_claim_id and status = 'open';
 $$;
 
--- ---------------------------------------------------------------- jobs (§9; schedules not seeded yet)
+-- ---------------------------------------------------------------- jobs (§9; run by 99_jobs)
 create or replace function private.expire_claims()
 returns integer
 language sql
@@ -214,5 +214,17 @@ as $$
                and coalesce(used_at, expires_at)
                    < now() - make_interval(days => (private.get_setting('retention.claim_tokens_days'))::integer)
              returning 1)
+  select count(*)::integer from x;
+$$;
+
+-- Account deletion (90_accounts): an anonymised customer can no longer redeem anything.
+create or replace function private.revoke_customer_claims(p_customer_id uuid)
+returns integer
+language sql
+security definer
+set search_path = ''
+as $$
+  with x as (update public.claim_tokens set status = 'revoked'
+             where customer_id = p_customer_id and status = 'open' returning 1)
   select count(*)::integer from x;
 $$;

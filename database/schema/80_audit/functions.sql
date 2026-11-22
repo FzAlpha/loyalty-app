@@ -86,8 +86,34 @@ security definer
 set search_path = ''
 as $$
 begin
+  -- Only audit.purge_expired may delete, and only rows already past retention.audit_logs_days.
+  if tg_op = 'DELETE' and current_setting('rewards.audit_purge', true) = 'on' then
+    if old.created_at < now() - make_interval(days => (private.get_setting('retention.audit_logs_days'))::integer) then
+      return old;
+    end if;
+  end if;
   perform private.raise_error('AUDIT_APPEND_ONLY', tg_op);
   return null;
+end;
+$$;
+
+-- audit_retention job (§9): deletes rows older than retention.audit_logs_days. The flag is local to
+-- this transaction; block_change re-checks the age of every row.
+create or replace function audit.purge_expired()
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_count integer;
+begin
+  perform set_config('rewards.audit_purge', 'on', true);
+  delete from audit.audit_logs
+  where created_at < now() - make_interval(days => (private.get_setting('retention.audit_logs_days'))::integer);
+  get diagnostics v_count = row_count;
+  perform set_config('rewards.audit_purge', 'off', true);
+  return v_count;
 end;
 $$;
 

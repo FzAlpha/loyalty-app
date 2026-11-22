@@ -21,6 +21,10 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [ ] M0: delete spike project after tests
 
 ## Decisions
+- 2026-11-22: Approved M8 defaults: report.max_range_days 366, report.export_max_rows 10000, audit.page_size_max 200; CSV capped, not streamed
+- 2026-11-22: M9 = backend gaps (block/reissue card, update_business, set_setting, account deletion, jobs + jobs-runner, security checks, §12 map); M10 = slow-network, runbooks, cut-over
+- 2026-11-22: Account deletion blocks the card (never reused); reissued card goes to pending (needs approval)
+- 2026-11-22: Job crons: expire_* every 5 min; purges 21:30 UTC daily; process_deletions 22:00 UTC; audit_retention Sun 22:30 UTC
 - 2026-11-22: Approved M7 defaults: ratelimit.claim_create 30/h; min purchase requires bill amount
 - 2026-11-21: Offer defaults approved: images 5 MB PNG/JPEG/WebP; weekday 0=Sun, end excluded, no midnight wrap, business TZ
 - 2026-11-21: Offer defaults approved: birthday ±N days nearest, no DOB refuses, Feb 29→Feb 28; reason codes 409; upsert replaces all
@@ -68,7 +72,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [~] CI workflow (supabase start, apply, seed, pgTAP, codegen) — first run pending
 - [ ] Commit generated contracts after first CI run (drift check)
 - [x] Declarative schema wiring verified in CI (probe step)
-- [ ] Seed ratelimit.<action> and jobs.<name>.cron — values not decided
+- [x] Seed ratelimit.<action> and jobs.<name>.cron
 - [!] Nightly encrypted backup workflow + restore drill — backup provider not chosen
 - [ ] Staging deploy on main — needs staging project + secrets
 
@@ -104,20 +108,30 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] pgTAP 50_offers: 25-case eligibility table + CRUD/RLS/storage (CI green)
   - [ ] customer_groups data file + group membership management RPC (not in plan yet)
   - [ ] Storage upload over HTTP not tested
-- [x] M7 Claims & redemption (job schedules pending)
+- [x] M7 Claims & redemption
   - [x] 60_claims: claim_tokens, create_claim_token, preview_claim, expire/purge jobs
   - [x] 70_redemptions: redemptions, api.redeem_claim (locked, idempotent, limits re-checked)
   - [x] pgTAP 60_claims (58 checks) + Deno concurrency suite (8 checks) green in CI
   - [x] Defaults approved: ratelimit.claim_create 30/h; min purchase requires bill amount
-  - [ ] Job schedules (expire_claims, purge_claim_tokens) not seeded
-- [x] M8 Reporting & audit (CI green; defaults + streaming decision pending)
+  - [x] Job schedules seeded (M9)
+- [x] M8 Reporting & audit
   - [x] 95_reporting: report_summary, report_redemptions (day/month/business/offer/executive), signups, birthdays, export rows
   - [x] api.list_audit_logs (80_audit, keyset paging)
   - [x] reports-export Edge Fn (CSV in JSON envelope, capped; not streamed)
   - [x] pgTAP 95_reporting (42 checks) + edge function checks
-  - [ ] Approve new defaults: report.max_range_days 366, report.export_max_rows 10000, audit.page_size_max 200
-  - [ ] Decide: CSV streaming (plan says streaming; built as capped single response)
-- [ ] M9–10 Hardening & release
+- [~] M9 Backend gaps (built; CI run pending)
+  - [x] api.block_card / api.reissue_card (reissue → pending by setting)
+  - [x] api.update_business, api.set_setting
+  - [x] 90_accounts: request_account_deletion, unchecked-account purge, svc claim/complete
+  - [x] account-deletion + jobs-runner Edge Functions (secret header, soft delete)
+  - [x] 99_jobs: pg_cron entries from jobs.*.cron, run_job, register trigger
+  - [x] 80_audit retention purge
+  - [x] security_scan.sh CI job (service-role key, "phone verified")
+  - [x] docs/acceptance-map.md (§12 → named tests)
+  - [~] pgTAP 01/21/41/90/99 + HTTP checks — awaiting CI
+  - [ ] jobs.process_deletions.batch_size 50 — default needs approval
+  - [!] Hosted Vault secrets + JOBS_RUNNER_SECRET — needs staging project
+- [ ] M10 Slow-network/low-end tests, runbooks, production cut-over
 
 ## Open questions (§16.2)
 - [ ] Sb-Forwarded-For retest with IP Address Forwarding on

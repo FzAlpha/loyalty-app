@@ -204,9 +204,11 @@ security definer
 set search_path = ''
 as $$
 begin
+  -- Accounts being deleted are already anonymised; Auth's soft delete rewrites the phone with a
+  -- placeholder that is not a phone number, so it must not reach the profile.
   update public.profiles
   set phone_e164 = case when nullif(new.phone, '') is null then null else '+' || ltrim(new.phone, '+') end
-  where id = new.id;
+  where id = new.id and account_status not in ('deletion_pending', 'deleted');
   return new;
 end;
 $$;
@@ -439,4 +441,60 @@ security definer
 set search_path = ''
 as $$
   select p.account_status, p.membership_status, p.date_of_birth from public.profiles p where p.id = p_customer_id;
+$$;
+
+-- ---------------------------------------------------------------- account deletion (used by 90_accounts)
+
+-- Removes personal data from the profile and the auth user, frees the phone in Auth and ends
+-- every session. The ids stay so redemptions keep their (now anonymous) customer reference.
+create or replace function private.anonymise_profile(p_user_id uuid, p_status public.account_status)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.profiles
+  set full_name = '', phone_e164 = null, date_of_birth = null, account_status = p_status
+  where id = p_user_id;
+  update auth.users set raw_user_meta_data = '{}'::jsonb where id = p_user_id;
+  perform private.release_auth_phone(p_user_id);
+end;
+$$;
+
+-- Holds an active customer role and nothing else, and is not staff. Only such accounts can be
+-- deleted by these paths; staff are disabled through staff-admin instead.
+create or replace function private.is_customer_only(p_user_id uuid)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  return exists (select 1 from public.user_roles ur join public.roles r on r.id = ur.role_id
+                 where ur.user_id = p_user_id and ur.is_active and r.key = 'customer')
+     and not exists (select 1 from public.user_roles ur join public.roles r on r.id = ur.role_id
+                     where ur.user_id = p_user_id and ur.is_active and r.key <> 'customer')
+     and not private.is_staff(p_user_id);
+end;
+$$;
+
+-- Customer-only accounts that never passed an identity check and either registered before
+-- p_cutoff or were disabled by an approved phone release (the only path that disables a
+-- customer, §7.4; that holder then follows the deletion path at once).
+create or replace function private.unchecked_customer_ids(p_cutoff timestamptz)
+returns setof uuid
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  return query
+    select p.id from public.profiles p
+    where ((p.account_status = 'active' and p.created_at < p_cutoff) or p.account_status = 'disabled')
+      and not private.has_passed_identity_check(p.id)
+      and private.is_customer_only(p.id);
+end;
 $$;

@@ -13,3 +13,6 @@ revoke all on all functions in schema private from public, anon, authenticated;
 
 revoke all on function api.svc_get_setting(text, uuid) from public, anon, authenticated;
 grant execute on function api.svc_get_setting(text, uuid) to service_role;
+
+revoke all on function api.set_setting(text, jsonb, uuid) from public, anon;
+grant execute on function api.set_setting(text, jsonb, uuid) to authenticated;

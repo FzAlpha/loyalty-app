@@ -7,6 +7,9 @@ const Env = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   // Comma-separated list of allowed browser origins. Empty = no browser origin allowed.
   CORS_ALLOWED_ORIGINS: z.string().default(""),
+  // Shared secret for jobs-runner (pg_cron -> pg_net). Optional: unset = jobs-runner refuses all calls.
+  // Length is checked in jobs-runner so a bad value cannot break the other functions.
+  JOBS_RUNNER_SECRET: z.string().optional(),
 });
 
 export type Config = z.infer<typeof Env>;
