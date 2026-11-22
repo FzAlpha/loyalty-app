@@ -480,6 +480,7 @@ Each layer has one job, so nothing is defined twice:
 - **local**: `supabase start` (Docker) + `database/seed/dev`.
 - **staging** (dev) and **production**: separate Supabase projects (Mumbai `ap-south-1` if available), **owned by the client's organisation**. On the Free plan these two use up the active-project limit (§17.2).
 - CI (GitHub Actions in `.github/workflows/`, approved): lint SQL → `supabase db diff` must be clean → pgTAP → Deno tests → codegen drift check → on main: `supabase db push` + `functions deploy` to staging; manual approval for production.
+  - Deviation (approved 2026-11-22): staging was first deployed via the Supabase MCP tools (see `docs/staging_setup.md`). The CI deploy job must exist before production.
 - Secrets: `supabase secrets set` per environment, sourced from the CI secret store. Never committed.
 - Backups (decided): **nightly independent backups** from a scheduled GitHub Actions workflow running `supabase db dump` (roles, schema, data), encrypted with `BACKUP_ENCRYPTION_KEY` before upload, stored in **client-owned external cloud storage, separate from Supabase**. Dumps kept 30 days (provisional). Write-only credentials for the workflow; the encryption key is held by the client outside that storage.
 - **Restore testing (decided: periodic):** a separate workflow restores the latest dump into a throwaway local Postgres/Supabase instance and runs a smoke check (row counts, pgTAP subset). Proposed cadence: monthly, plus after any schema-heavy release; each result logged in `docs/`. Cadence still to confirm (§16.2).

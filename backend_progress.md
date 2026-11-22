@@ -21,6 +21,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [x] M0: spike project deleted
 
 ## Decisions
+- 2026-11-22: Staging deployed via Supabase MCP tools; CI deploy job before production
 - 2026-11-22: Approved client-only error codes NETWORK_ERROR, INVALID_RESPONSE; unknown server errors → UNKNOWN_ERROR_CODE
 - 2026-11-22: Approved M8 defaults: report.max_range_days 366, report.export_max_rows 10000, audit.page_size_max 200; CSV capped, not streamed
 - 2026-11-22: M9 = backend gaps (block/reissue card, update_business, set_setting, account deletion, jobs + jobs-runner, security checks, §12 map); M10 = slow-network, runbooks, cut-over
@@ -77,7 +78,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [x] Declarative schema wiring verified in CI (probe step)
 - [x] Seed ratelimit.<action> and jobs.<name>.cron
 - [!] Nightly encrypted backup workflow + restore drill — backup provider not chosen
-- [ ] Staging deploy on main — needs staging project + secrets
+- [ ] CI staging deploy job (before production)
 
 ## Milestones (§15)
 - [x] M0 Spikes (signed off): no-SMS signup, IP limits via Edge Fn, Expo+pnpm, folder wiring
@@ -133,11 +134,12 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] docs/acceptance-map.md (§12 → named tests)
   - [x] pgTAP 01/21/41/90/99 + HTTP checks — green in CI
   - [x] jobs.process_deletions.batch_size 50 — approved
-  - [!] Hosted Vault secrets + JOBS_RUNNER_SECRET — needs staging project
+  - [!] Hosted JOBS_RUNNER_SECRET (fn secret + Vault) — user, docs/staging_setup.md
 - [ ] M10 Slow-network/low-end tests, runbooks, production cut-over — paused until frontends built
 - [~] Frontends (docs/FRONTEND_PLAN.md)
   - [x] Staging project rewards-app-staging (Free, ap-south-1, prolink)
-  - [ ] Staging: deploy schema, seed, functions, auth config, secrets
+  - [x] Staging: schema, seed, cron, functions deployed + smoke-tested
+  - [!] Staging auth dashboard settings — user, docs/staging_setup.md
   - [x] F0 backend/contracts committed + drift check
   - [x] F0 packages/shared + packages/api, unit tests — green in CI
   - [x] F0 client-only error codes NETWORK_ERROR/INVALID_RESPONSE — approved
