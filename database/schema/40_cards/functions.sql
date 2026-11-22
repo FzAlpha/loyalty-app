@@ -326,3 +326,14 @@ set search_path = ''
 as $$
   select exists (select 1 from public.cards where current_customer_id = p_customer_id and status = 'active');
 $$;
+
+-- Claims (60_claims): the customer's active card id, or null.
+create or replace function private.customer_active_card_id(p_customer_id uuid)
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select id from public.cards where current_customer_id = p_customer_id and status = 'active' limit 1;
+$$;

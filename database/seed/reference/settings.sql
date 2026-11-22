@@ -41,6 +41,7 @@ insert into public.app_settings (key, value, value_schema, description) values
   ('ratelimit.recover_phone', '{"capacity":5,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Recovery attempts per phone'),
   ('ratelimit.recovery_issue', '{"capacity":20,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Recovery codes issued per staff member'),
   ('ratelimit.card_link', '{"capacity":10,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Card link attempts per customer'),
+  ('ratelimit.claim_create', '{"capacity":30,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Claim QRs created per customer'),
   ('storage.bucket.business_assets', '"business-assets"', '{"type":"string","pattern":"^[a-z0-9-]+$"}', 'Bucket for business logos (public read)'),
   ('storage.bucket.offer_banners',   '"offer-banners"',   '{"type":"string","pattern":"^[a-z0-9-]+$"}', 'Bucket for offer banners (public read)'),
   ('storage.max_file_bytes',         '5242880',           '{"type":"integer","minimum":1}', 'Upload size limit for asset buckets'),

@@ -274,3 +274,58 @@ begin
   return v_perm is not null and private.session_is_live() and private.can(v_perm, v_seg::uuid);
 end;
 $$;
+
+-- ---------------------------------------------------------------- used by 60_claims / 70_redemptions
+-- Minimal offer facts for claim screens and redemption checks.
+create or replace function private.offer_brief(p_offer_id uuid)
+returns table (business_id uuid, title text, min_purchase_amount numeric, max_discount_amount numeric)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select o.business_id, o.title, o.min_purchase_amount, o.max_discount_amount
+  from public.offers o where o.id = p_offer_id;
+$$;
+
+-- §8 steps 8–11, run inside the redeem transaction after the claim token is locked
+-- (lock order: token -> offer -> usage). Raises the engine's reason code when not eligible.
+create or replace function private.consume_offer_use(p_customer_id uuid, p_offer_id uuid, p_at timestamptz)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_o public.offers;
+  v_e record;
+begin
+  select * into v_o from public.offers where id = p_offer_id;
+  if not found then
+    perform private.raise_error('OFFER_INACTIVE');
+  end if;
+  if v_o.total_usage_limit is not null then
+    perform 1 from public.offers where id = p_offer_id for update;
+  end if;
+
+  select * into v_e from private.evaluate_offer(p_customer_id, p_offer_id, p_at);
+  if not v_e.eligible then
+    perform private.raise_error(v_e.reason_code);
+  end if;
+
+  insert into public.offer_usage as u (offer_id, customer_id, used_count, last_used_at)
+  values (p_offer_id, p_customer_id, 1, p_at)
+  on conflict (offer_id, customer_id) do update
+    set used_count = u.used_count + 1, last_used_at = excluded.last_used_at
+    where v_o.max_uses_per_customer is null or u.used_count < v_o.max_uses_per_customer;
+  if not found then
+    perform private.raise_error('CUSTOMER_LIMIT_REACHED');
+  end if;
+
+  update public.offers set total_redeemed = total_redeemed + 1
+  where id = p_offer_id and (total_usage_limit is null or total_redeemed < total_usage_limit);
+  if not found then
+    perform private.raise_error('OFFER_LIMIT_REACHED');
+  end if;
+end;
+$$;

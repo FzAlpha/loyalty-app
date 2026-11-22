@@ -93,6 +93,13 @@ jobs:
       - name: Edge Function HTTP tests (backend/tests)
         run: bash tests/edge_functions.sh 2>&1 | tee /tmp/ci/fn.log
 
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Concurrency suite (backend/tests/concurrency)
+        run: deno run --allow-net --allow-env --allow-read --allow-sys tests/concurrency/redeem_concurrency.ts 2>&1 | tee /tmp/ci/conc.log
+
       - name: Edge runtime logs (on failure)
         if: failure()
         run: docker logs "$(docker ps --format '{{.Names}}' | grep -m1 edge_runtime)" 2>&1 | tail -80 | tee /tmp/ci/edgelogs.log

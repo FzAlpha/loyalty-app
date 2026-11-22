@@ -32,6 +32,15 @@ insert into public.error_codes (code, http_status, description) values
   ('OUTSIDE_BIRTHDAY_WINDOW', 409, 'Offer is only available around your birthday'),
   ('CUSTOMER_LIMIT_REACHED', 409, 'You have used this offer the maximum number of times'),
   ('OFFER_LIMIT_REACHED', 409, 'Offer has reached its total usage limit'),
+  ('INVALID_CLAIM',      400, 'Claim QR is not valid'),
+  ('CLAIM_REVOKED',      409, 'Claim QR was replaced by a newer one'),
+  ('CLAIM_EXPIRED',      409, 'Claim QR has expired'),
+  ('ALREADY_REDEEMED',   409, 'Claim has already been redeemed'),
+  ('WRONG_BUSINESS',     403, 'Claim belongs to another business'),
+  ('BILL_NUMBER_REQUIRED', 400, 'Bill number is required'),
+  ('BILL_AMOUNT_REQUIRED', 400, 'Bill amount is required'),
+  ('BELOW_MIN_PURCHASE', 409, 'Bill amount is below the offer minimum'),
+  ('IDEMPOTENCY_KEY_REUSED', 409, 'Idempotency key was already used for a different request'),
   ('INTERNAL_ERROR',     500, 'Unexpected server error')
 on conflict (code) do update
   set http_status = excluded.http_status,
