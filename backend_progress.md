@@ -27,6 +27,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - 2026-11-22: Job crons: expire_* every 5 min; purges 21:30 UTC daily; process_deletions 22:00 UTC; audit_retention Sun 22:30 UTC
 - 2026-11-22: Approved M7 defaults: ratelimit.claim_create 30/h; min purchase requires bill amount
 - 2026-11-22: Approved jobs.process_deletions.batch_size = 50
+- 2026-11-22: Frontends before M10 (FRONTEND_PLAN approved); staging = new Free project; Expo Go testing; order customer, admin, dashboard; English only
 - 2026-11-21: Offer defaults approved: images 5 MB PNG/JPEG/WebP; weekday 0=Sun, end excluded, no midnight wrap, business TZ
 - 2026-11-21: Offer defaults approved: birthday ±N days nearest, no DOB refuses, Feb 29→Feb 28; reason codes 409; upsert replaces all
 - 2026-11-21: Approved defaults: cards.batch_max_quantity 5000, ratelimit.card_link 10/hour
@@ -132,7 +133,13 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] pgTAP 01/21/41/90/99 + HTTP checks — green in CI
   - [x] jobs.process_deletions.batch_size 50 — approved
   - [!] Hosted Vault secrets + JOBS_RUNNER_SECRET — needs staging project
-- [ ] M10 Slow-network/low-end tests, runbooks, production cut-over
+- [ ] M10 Slow-network/low-end tests, runbooks, production cut-over — paused until frontends built
+- [~] Frontends (docs/FRONTEND_PLAN.md)
+  - [ ] Staging Supabase project (remove M0 spike first)
+  - [ ] F0 commit backend/contracts + packages/shared + packages/api
+  - [ ] F1 customer app
+  - [ ] F2 admin app
+  - [ ] F3 owner dashboard
 
 ## Open questions (§16.2)
 - [ ] Sb-Forwarded-For retest with IP Address Forwarding on

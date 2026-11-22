@@ -500,7 +500,7 @@ Each layer has one job, so nothing is defined twice:
 | 7 | Claims and redemption: create, preview, redeem, idempotency, jobs | Concurrency suite passes |
 | 8 | Reporting, CSV export, audit viewer RPCs | Owner reports verified |
 | 9 | Backend gaps: block/reissue card, update business, set setting, account deletion + `jobs-runner`, cron registration, security scan in CI, §12 acceptance map (`docs/acceptance-map.md`) | pgTAP + HTTP tests green; every §12 criterion mapped |
-| 10 | Slow-network and low-end Android tests (needs frontends), runbooks, production cut-over | All PDF §12 criteria green |
+| 10 | Slow-network and low-end Android tests (needs frontends), runbooks, production cut-over. **Paused until frontends F0–F3 are built** (docs/FRONTEND_PLAN.md) | All PDF §12 criteria green |
 
 ---
 
@@ -535,6 +535,10 @@ Each layer has one job, so nothing is defined twice:
 | 24 | Deletion (M9) | Card blocked and never reused; redemptions kept, anonymised (22 Nov) |
 | 25 | Reissue (M9) | Reissued card goes to `pending`; `cards.reissue_requires_approval` = true (22 Nov) |
 | 26 | Job schedules (M9) | `jobs.<name>.cron` settings, UTC, values in §9 (22 Nov) |
+| 27 | Frontends before M10 | Build frontends first (docs/FRONTEND_PLAN.md, approved); M10 after (22 Nov) |
+| 28 | Dev backend | New Free-plan staging project; M0 spike project removed first (22 Nov) |
+| 29 | Android testing | Expo Go on the user's phone (22 Nov) |
+| 30 | Frontend order | F0 contracts + `packages/api`, then customer, admin, dashboard; English only; NativeWind/Tailwind (22 Nov) |
 
 ### 16.2 Still open
 1. **Backup storage provider** (which client-owned cloud account/bucket) and **restore-test cadence** (proposed monthly).
