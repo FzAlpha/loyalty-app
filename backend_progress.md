@@ -136,7 +136,9 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [ ] M10 Slow-network/low-end tests, runbooks, production cut-over — paused until frontends built
 - [~] Frontends (docs/FRONTEND_PLAN.md)
   - [ ] Staging Supabase project (remove M0 spike first)
-  - [ ] F0 commit backend/contracts + packages/shared + packages/api
+  - [x] F0 backend/contracts committed + drift check
+  - [~] F0 packages/shared + packages/api, unit tests (CI packages job)
+  - [ ] F0 client-only error codes NETWORK_ERROR/INVALID_RESPONSE — needs user OK
   - [ ] F1 customer app
   - [ ] F2 admin app
   - [ ] F3 owner dashboard

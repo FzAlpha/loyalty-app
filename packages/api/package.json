@@ -1,0 +1,21 @@
+{
+  "name": "@rewards/api",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@rewards/shared": "workspace:*",
+    "@supabase/supabase-js": "2.45.4",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}

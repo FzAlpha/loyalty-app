@@ -30,6 +30,20 @@ jobs:
           msg=$(tail -n 60 check.log | awk '{ gsub(/%/, "%25"); gsub(/\r/, ""); printf "%s%%0A", $0 }')
           echo "::notice title=deno-check.log::$msg"
 
+  packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+      - name: Install workspace (frozen lockfile)
+        run: npx -y pnpm@12.21.0 install --frozen-lockfile
+      - name: Typecheck packages
+        run: npx -y pnpm@12.21.0 -r typecheck
+      - name: Unit tests (packages/shared, packages/api)
+        run: npx -y pnpm@12.21.0 -r test
+
   security:
     runs-on: ubuntu-latest
     steps:
@@ -132,7 +146,7 @@ jobs:
           name: contracts
           path: backend/contracts/
 
-      # git diff ignores untracked files, so this passes until contracts are first committed.
+      # Fails if regenerated contracts differ from the committed backend/contracts/.
       - name: Codegen drift check
         run: npm run codegen:check 2>&1 | tee /tmp/ci/drift.log
 

@@ -1,6 +1,9 @@
 {
   "name": "@rewards/backend",
   "private": true,
+  "exports": {
+    "./contracts/*": "./contracts/*.ts"
+  },
   "scripts": {
     "db:apply": "for m in ../database/schema/*/; do for f in tables functions triggers rls grants; do [ ! -f \"$m$f.sql\" ] || psql \"$DB_URL\" -v ON_ERROR_STOP=1 -q -f \"$m$f.sql\" || exit 1; done; done",
     "db:seed": "for f in ../database/seed/reference/*.sql; do psql \"$DB_URL\" -v ON_ERROR_STOP=1 -q -f \"$f\" || exit 1; done",

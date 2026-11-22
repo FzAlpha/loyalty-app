@@ -1,0 +1,25 @@
+// Claim QR (customer) and preview / redeem (executive). Never offline: a claim is redeemed only
+// when redeem() returns data (FRONTEND_PLAN §2).
+import type { z } from "zod";
+import {
+  CreateClaimTokenInput, CreateClaimTokenOutput, PreviewClaimInput, PreviewClaimOutput, RedeemClaimInput,
+  RedeemClaimOutput,
+} from "@rewards/shared";
+import { withInput, type Ctx } from "../client.ts";
+
+export function claimsModule(ctx: Ctx) {
+  return {
+    create: (input: z.input<typeof CreateClaimTokenInput>) => withInput(CreateClaimTokenInput, input, (v) =>
+      ctx.rpc("create_claim_token", { p_offer_id: v.offerId }, CreateClaimTokenOutput)),
+
+    preview: (input: z.input<typeof PreviewClaimInput>) => withInput(PreviewClaimInput, input, (v) =>
+      ctx.rpc("preview_claim", { p_qr_payload: v.qrPayload }, PreviewClaimOutput)),
+
+    // Reuse the same idempotencyKey when retrying after NETWORK_ERROR; the server replays the result.
+    redeem: (input: z.input<typeof RedeemClaimInput>) => withInput(RedeemClaimInput, input, (v) =>
+      ctx.rpc("redeem_claim", {
+        p_qr_payload: v.qrPayload, p_idempotency_key: v.idempotencyKey, p_bill_number: v.billNumber,
+        p_bill_amount: v.billAmount,
+      }, RedeemClaimOutput)),
+  };
+}

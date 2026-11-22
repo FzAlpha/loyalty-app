@@ -71,6 +71,11 @@ Versions are pinned when each app is created. M0 verified Expo SDK 58. I will no
 5. **Design / branding.** There's no design in the repo. Proposed: plain, accessible components. Business branding (logo/colours) comes from the `businesses` data already in the backend.
 
 ## 5. Known gaps (honest status)
-- `backend/contracts` is generated in CI but not committed yet. `packages/api` is empty, even though BACKEND_PLAN.md §16.1 #21 said it would be written module by module. F0 fills both.
+- F0 done: `backend/contracts` is committed (CI drift check), `packages/shared` (Zod schemas, error codes) and `packages/api` (one module per domain) are unit-tested in the CI `packages` job.
+- `packages/api` adds two client-only error codes, `NETWORK_ERROR` and `INVALID_RESPONSE`, that are not in the server catalogue. Unknown server errors map to `UNKNOWN_ERROR_CODE`. Pending user sign-off.
+- Generated contract types mark `p_business_id` as non-null, but null means group-wide. `packages/api` casts it (`biz()` in reports.ts).
+- There are no customer read RPCs yet (own profile, card, redemption history). They are needed in F1, and their design must be agreed first.
+- `packages/shared` exports raw `.ts` files (`@rewards/backend/contracts/*`). Whether Metro resolves this is unverified until F1.
+- The hosted password settings (minimum length, secure password change) are unverified; config.toml has `minimum_password_length = 6` and `secure_password_change = false`.
 - Whether Edge Functions can import `packages/shared` is still unverified (BACKEND_PLAN.md §12).
 - Native Android build is unverified (M0 (c)).
