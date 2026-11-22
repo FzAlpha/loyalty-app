@@ -26,6 +26,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - 2026-11-22: Account deletion blocks the card (never reused); reissued card goes to pending (needs approval)
 - 2026-11-22: Job crons: expire_* every 5 min; purges 21:30 UTC daily; process_deletions 22:00 UTC; audit_retention Sun 22:30 UTC
 - 2026-11-22: Approved M7 defaults: ratelimit.claim_create 30/h; min purchase requires bill amount
+- 2026-11-22: Approved jobs.process_deletions.batch_size = 50
 - 2026-11-21: Offer defaults approved: images 5 MB PNG/JPEG/WebP; weekday 0=Sun, end excluded, no midnight wrap, business TZ
 - 2026-11-21: Offer defaults approved: birthday ±N days nearest, no DOB refuses, Feb 29→Feb 28; reason codes 409; upsert replaces all
 - 2026-11-21: Approved defaults: cards.batch_max_quantity 5000, ratelimit.card_link 10/hour
@@ -129,7 +130,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] security_scan.sh CI job (service-role key, "phone verified")
   - [x] docs/acceptance-map.md (§12 → named tests)
   - [x] pgTAP 01/21/41/90/99 + HTTP checks — green in CI
-  - [ ] jobs.process_deletions.batch_size 50 — default needs approval
+  - [x] jobs.process_deletions.batch_size 50 — approved
   - [!] Hosted Vault secrets + JOBS_RUNNER_SECRET — needs staging project
 - [ ] M10 Slow-network/low-end tests, runbooks, production cut-over
 

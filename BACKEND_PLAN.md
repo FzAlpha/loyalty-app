@@ -426,7 +426,7 @@ Nightly database backups are **not** a pg_cron job: they run from `.github/workf
 
 `private.register_jobs()` reads the settings and (re)creates the cron entries `rewards.<job>` (command `select private.run_job('<job>')`), so a schedule change is a settings update (a trigger on `app_settings` re-registers the job). Schedules are UTC (approved M9): `expire_claims`, `expire_recovery_codes` `*/5 * * * *`; the four `purge_*` jobs `30 21 * * *`; `process_deletions` `0 22 * * *`; `audit_retention` `30 22 * * 0`.
 
-`process_deletions` needs two **Vault** secrets per hosted project, `jobs_runner_url` (project URL) and `jobs_runner_secret`, and the same value as the Edge Function secret `JOBS_RUNNER_SECRET` (`supabase secrets set`, at least 32 chars). Without them the job raises `JOBS_NOT_CONFIGURED` when work is due. `jobs-runner` (`verify_jwt = false`) accepts only the `x-jobs-secret` header (constant-time compare) and claims at most `jobs.process_deletions.batch_size` requests per run (`for update skip locked`); failures are recorded and retried on the next run.
+`process_deletions` needs two **Vault** secrets per hosted project, `jobs_runner_url` (project URL) and `jobs_runner_secret`, and the same value as the Edge Function secret `JOBS_RUNNER_SECRET` (`supabase secrets set`, at least 32 chars). Without them the job raises `JOBS_NOT_CONFIGURED` when work is due. `jobs-runner` (`verify_jwt = false`) accepts only the `x-jobs-secret` header (constant-time compare) and claims at most `jobs.process_deletions.batch_size` (default 50, approved) requests per run (`for update skip locked`); failures are recorded and retried on the next run.
 
 ---
 
