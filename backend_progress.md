@@ -119,7 +119,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] api.list_audit_logs (80_audit, keyset paging)
   - [x] reports-export Edge Fn (CSV in JSON envelope, capped; not streamed)
   - [x] pgTAP 95_reporting (42 checks) + edge function checks
-- [~] M9 Backend gaps (built; CI run pending)
+- [x] M9 Backend gaps (green in CI)
   - [x] api.block_card / api.reissue_card (reissue → pending by setting)
   - [x] api.update_business, api.set_setting
   - [x] 90_accounts: request_account_deletion, unchecked-account purge, svc claim/complete
@@ -128,7 +128,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] 80_audit retention purge
   - [x] security_scan.sh CI job (service-role key, "phone verified")
   - [x] docs/acceptance-map.md (§12 → named tests)
-  - [~] pgTAP 01/21/41/90/99 + HTTP checks — awaiting CI
+  - [x] pgTAP 01/21/41/90/99 + HTTP checks — green in CI
   - [ ] jobs.process_deletions.batch_size 50 — default needs approval
   - [!] Hosted Vault secrets + JOBS_RUNNER_SECRET — needs staging project
 - [ ] M10 Slow-network/low-end tests, runbooks, production cut-over
