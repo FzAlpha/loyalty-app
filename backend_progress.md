@@ -137,7 +137,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [~] Frontends (docs/FRONTEND_PLAN.md)
   - [ ] Staging Supabase project (remove M0 spike first)
   - [x] F0 backend/contracts committed + drift check
-  - [~] F0 packages/shared + packages/api, unit tests (CI packages job)
+  - [x] F0 packages/shared + packages/api, unit tests — green in CI
   - [ ] F0 client-only error codes NETWORK_ERROR/INVALID_RESPONSE — needs user OK
   - [ ] F1 customer app
   - [ ] F2 admin app
