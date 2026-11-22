@@ -72,7 +72,7 @@ Versions are pinned when each app is created. M0 verified Expo SDK 58. I will no
 
 ## 5. Known gaps (honest status)
 - F0 done: `backend/contracts` is committed (CI drift check), `packages/shared` (Zod schemas, error codes) and `packages/api` (one module per domain) are unit-tested in the CI `packages` job.
-- `packages/api` adds two client-only error codes, `NETWORK_ERROR` and `INVALID_RESPONSE`, that are not in the server catalogue. Unknown server errors map to `UNKNOWN_ERROR_CODE`. Pending user sign-off.
+- `packages/api` adds two client-only error codes, `NETWORK_ERROR` and `INVALID_RESPONSE`, that are not in the server catalogue. Unknown server errors map to `UNKNOWN_ERROR_CODE`. Approved 2026-11-22.
 - Generated contract types mark `p_business_id` as non-null, but null means group-wide. `packages/api` casts it (`biz()` in reports.ts).
 - There are no customer read RPCs yet (own profile, card, redemption history). They are needed in F1, and their design must be agreed first.
 - `packages/shared` exports raw `.ts` files (`@rewards/backend/contracts/*`). Whether Metro resolves this is unverified until F1.

@@ -21,6 +21,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [ ] M0: delete spike project after tests
 
 ## Decisions
+- 2026-11-22: Approved client-only error codes NETWORK_ERROR, INVALID_RESPONSE; unknown server errors → UNKNOWN_ERROR_CODE
 - 2026-11-22: Approved M8 defaults: report.max_range_days 366, report.export_max_rows 10000, audit.page_size_max 200; CSV capped, not streamed
 - 2026-11-22: M9 = backend gaps (block/reissue card, update_business, set_setting, account deletion, jobs + jobs-runner, security checks, §12 map); M10 = slow-network, runbooks, cut-over
 - 2026-11-22: Account deletion blocks the card (never reused); reissued card goes to pending (needs approval)
@@ -138,7 +139,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [ ] Staging Supabase project (remove M0 spike first)
   - [x] F0 backend/contracts committed + drift check
   - [x] F0 packages/shared + packages/api, unit tests — green in CI
-  - [ ] F0 client-only error codes NETWORK_ERROR/INVALID_RESPONSE — needs user OK
+  - [x] F0 client-only error codes NETWORK_ERROR/INVALID_RESPONSE — approved
   - [ ] F1 customer app
   - [ ] F2 admin app
   - [ ] F3 owner dashboard
