@@ -21,6 +21,8 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [ ] M0: delete spike project after tests
 
 ## Decisions
+- 2026-11-21: Offer defaults approved: images 5 MB PNG/JPEG/WebP; weekday 0=Sun, end excluded, no midnight wrap, business TZ
+- 2026-11-21: Offer defaults approved: birthday ±N days nearest, no DOB refuses, Feb 29→Feb 28; reason codes 409; upsert replaces all
 - 2026-11-21: Approved defaults: cards.batch_max_quantity 5000, ratelimit.card_link 10/hour
 - 2026-11-21: CI-only dummy Twilio block enables local phone login (runner copy only; hook refuses SMS)
 - 2026-11-18: Folder structure approved (plan §1); dashboard = frontend/dashboard
@@ -101,7 +103,12 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] pgTAP 50_offers: 25-case eligibility table + CRUD/RLS/storage (CI green)
   - [ ] customer_groups data file + group membership management RPC (not in plan yet)
   - [ ] Storage upload over HTTP not tested
-- [ ] M7 Claims & redemption
+- [~] M7 Claims & redemption
+  - [x] 60_claims: claim_tokens, create_claim_token, preview_claim, expire/purge jobs
+  - [x] 70_redemptions: redemptions, api.redeem_claim (locked, idempotent, limits re-checked)
+  - [~] pgTAP 60_claims (58 checks) + Deno concurrency suite — CI run pending
+  - [ ] Approve new defaults: ratelimit.claim_create 30/h; min purchase requires bill amount
+  - [ ] Job schedules (expire_claims, purge_claim_tokens) not seeded
 - [ ] M8 Reporting & audit
 - [ ] M9–10 Hardening & release
 

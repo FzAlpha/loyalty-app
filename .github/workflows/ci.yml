@@ -98,7 +98,7 @@ jobs:
           deno-version: v2.x
 
       - name: Concurrency suite (backend/tests/concurrency)
-        run: deno run --allow-net --allow-env --allow-read --allow-sys tests/concurrency/redeem_concurrency.ts 2>&1 | tee /tmp/ci/conc.log
+        run: deno run --node-modules-dir=auto --allow-net --allow-env --allow-read --allow-sys tests/concurrency/redeem_concurrency.ts 2>&1 | tee /tmp/ci/conc.log
 
       - name: Edge runtime logs (on failure)
         if: failure()
