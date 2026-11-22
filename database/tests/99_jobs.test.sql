@@ -21,7 +21,9 @@ select is((select schedule from cron.job where jobname = 'rewards.audit_retentio
 select is((select command from cron.job where jobname = 'rewards.process_deletions'),
           $$select private.run_job('process_deletions')$$, 'cron entry calls run_job');
 
-set local request.jwt.claims = '{"sub":"a0000000-0000-0000-0000-0000000099aa","role":"authenticated"}';
+insert into auth.sessions (id, user_id) values
+  ('50000000-0000-0000-0000-0000000099aa', 'a0000000-0000-0000-0000-0000000099aa');
+set local request.jwt.claims = '{"sub":"a0000000-0000-0000-0000-0000000099aa","role":"authenticated","session_id":"50000000-0000-0000-0000-0000000099aa"}';
 select lives_ok($$select api.set_setting('jobs.expire_claims.cron', '"*/10 * * * *"')$$, 'owner changes a schedule');
 select is((select schedule from cron.job where jobname = 'rewards.expire_claims'), '*/10 * * * *', 'cron entry re-registered');
 select throws_ok($$select api.set_setting('jobs.expire_claims.cron', '"not a cron"')$$, 'PT400', 'VALIDATION_FAILED',

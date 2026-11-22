@@ -37,13 +37,16 @@ insert into q values
 select ok(not has_function_privilege('anon', 'api.block_card(uuid,uuid,text)', 'execute'), 'anon cannot block cards');
 
 -- ---------------------------------------------------------------- block
-set local request.jwt.claims = '{"sub":"e1000000-0000-0000-0000-0000000004e1","role":"authenticated"}';
+insert into auth.sessions (id, user_id) values
+  ('51000000-0000-0000-0000-0000000004e1', 'e1000000-0000-0000-0000-0000000004e1'),
+  ('50000000-0000-0000-0000-0000000004aa', 'a0000000-0000-0000-0000-0000000004aa');
+set local request.jwt.claims = '{"sub":"e1000000-0000-0000-0000-0000000004e1","role":"authenticated","session_id":"51000000-0000-0000-0000-0000000004e1"}';
 select throws_ok($$select api.block_card('cad10000-0000-0000-0000-0000000004c1', 'b1000000-0000-0000-0000-0000000004b1', 'lost')$$,
                  'PT403', 'FORBIDDEN', 'executive cannot block (no card.block)');
 select throws_ok($$select api.reissue_card('cad10000-0000-0000-0000-0000000004c1', 'x', 'b1000000-0000-0000-0000-0000000004b1', 'lost')$$,
                  'PT403', 'FORBIDDEN', 'executive cannot reissue (no card.reissue)');
 
-set local request.jwt.claims = '{"sub":"a0000000-0000-0000-0000-0000000004aa","role":"authenticated"}';
+set local request.jwt.claims = '{"sub":"a0000000-0000-0000-0000-0000000004aa","role":"authenticated","session_id":"50000000-0000-0000-0000-0000000004aa"}';
 select throws_ok($$select api.block_card('cad10000-0000-0000-0000-0000000004c1', 'b1000000-0000-0000-0000-0000000004b1', '  ')$$,
                  'PT400', 'VALIDATION_FAILED', 'reason required');
 insert into q values ('b', api.block_card('cad10000-0000-0000-0000-0000000004c1', 'b1000000-0000-0000-0000-0000000004b1', 'lost'));

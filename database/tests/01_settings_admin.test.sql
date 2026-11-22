@@ -15,12 +15,15 @@ create temp table q (name text primary key, r jsonb);
 
 select ok(not has_function_privilege('anon', 'api.set_setting(text,jsonb,uuid)', 'execute'), 'anon cannot set settings');
 
-set local request.jwt.claims = '{"sub":"e1000000-0000-0000-0000-0000000001e1","role":"authenticated"}';
+insert into auth.sessions (id, user_id) values
+  ('51000000-0000-0000-0000-0000000001e1', 'e1000000-0000-0000-0000-0000000001e1'),
+  ('50000000-0000-0000-0000-0000000001aa', 'a0000000-0000-0000-0000-0000000001aa');
+set local request.jwt.claims = '{"sub":"e1000000-0000-0000-0000-0000000001e1","role":"authenticated","session_id":"51000000-0000-0000-0000-0000000001e1"}';
 select throws_ok($$select api.set_setting('claims.ttl_seconds', '300')$$, 'PT403', 'FORBIDDEN', 'executive cannot change a global setting');
 select throws_ok($$select api.set_setting('claims.ttl_seconds', '300', 'b1000000-0000-0000-0000-0000000001b1')$$,
                  'PT403', 'FORBIDDEN', 'executive cannot override for their business');
 
-set local request.jwt.claims = '{"sub":"a0000000-0000-0000-0000-0000000001aa","role":"authenticated"}';
+set local request.jwt.claims = '{"sub":"a0000000-0000-0000-0000-0000000001aa","role":"authenticated","session_id":"50000000-0000-0000-0000-0000000001aa"}';
 insert into q values ('g', api.set_setting('claims.ttl_seconds', '300'));
 select is((select r -> 'value' from q where name = 'g'), '300'::jsonb, 'owner changes a global setting');
 select is(private.get_setting('claims.ttl_seconds'), '300'::jsonb, 'new global value is read back');

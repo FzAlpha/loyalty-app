@@ -15,11 +15,14 @@ create temp table q (name text primary key, r jsonb);
 
 select ok(not has_function_privilege('anon', 'api.update_business(uuid,jsonb)', 'execute'), 'anon cannot edit businesses');
 
-set local request.jwt.claims = '{"sub":"e1000000-0000-0000-0000-0000000002e1","role":"authenticated"}';
+insert into auth.sessions (id, user_id) values
+  ('51000000-0000-0000-0000-0000000002e1', 'e1000000-0000-0000-0000-0000000002e1'),
+  ('50000000-0000-0000-0000-0000000002aa', 'a0000000-0000-0000-0000-0000000002aa');
+set local request.jwt.claims = '{"sub":"e1000000-0000-0000-0000-0000000002e1","role":"authenticated","session_id":"51000000-0000-0000-0000-0000000002e1"}';
 select throws_ok($$select api.update_business('b1000000-0000-0000-0000-0000000002b1', '{"name":"X"}')$$,
                  'PT403', 'FORBIDDEN', 'executive cannot edit the business');
 
-set local request.jwt.claims = '{"sub":"a0000000-0000-0000-0000-0000000002aa","role":"authenticated"}';
+set local request.jwt.claims = '{"sub":"a0000000-0000-0000-0000-0000000002aa","role":"authenticated","session_id":"50000000-0000-0000-0000-0000000002aa"}';
 insert into q values ('u', api.update_business('b1000000-0000-0000-0000-0000000002b1',
   '{"name":"  New Name ","address":"1 Main St","timezone":"Asia/Kolkata"}'));
 select is((select r ->> 'name' from q where name = 'u'), 'New Name', 'owner renames (trimmed)');
