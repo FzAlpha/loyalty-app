@@ -455,3 +455,7 @@ verify_jwt = true
 # card-batches: gateway JWT check; create_card_batch checks card.batch.create as the caller.
 [functions.card-batches]
 verify_jwt = true
+
+# reports-export: gateway JWT check; report RPCs check report.view as the caller.
+[functions.reports-export]
+verify_jwt = true

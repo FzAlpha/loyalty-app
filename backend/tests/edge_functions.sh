@@ -152,4 +152,12 @@ qr=$(python3 -c 'import sys,json; print(json.loads(sys.argv[1].split(" ",1)[1])[
 link() { curl -s -o /tmp/fn.json -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/link_card" -H "apikey: $ANON_KEY"   -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -H 'Content-Profile: api' -d "{\"p_qr_payload\":\"$2\"}"; echo " $(cat /tmp/fn.json)"; }
 r=$(link "$ta" "$qr"); [ "${r%% *}" = 200 ] && [ "$(python3 -c 'import sys,json; print(json.loads(sys.argv[1].split(" ",1)[1])["status"])' "$r" 2>/dev/null)" = pending ]   && echo "ok - customer links card over PostgREST" || { echo "not ok - link card ($r)"; fail=1; }
 
+# ---------------------------------------------------------------- reports-export (M8)
+rb='{"report":"redemptions","from":"2026-01-01T00:00:00Z","to":"2026-02-01T00:00:00Z"}'
+check "customer cannot export reports" 403 FORBIDDEN "$(call POST reports-export "$ta" "$rb")"
+r=$(call POST reports-export "$to" "$rb"); check "owner exports redemptions CSV" 200 "$r"
+case "$(field "$r" data.csv)" in '"redeemed_at","business",'*) echo "ok - CSV has header row";; *) echo "not ok - CSV header ($r)"; fail=1;; esac
+check "owner grouped export" 200 "$(call POST reports-export "$to" '{"report":"redemptions_grouped","group_by":"offer","from":"2026-01-01T00:00:00Z","to":"2026-02-01T00:00:00Z"}')"
+check "reversed range is VALIDATION_FAILED" 400 VALIDATION_FAILED   "$(call POST reports-export "$to" '{"report":"redemptions","from":"2026-02-01T00:00:00Z","to":"2026-01-01T00:00:00Z"}')"
+
 exit $fail

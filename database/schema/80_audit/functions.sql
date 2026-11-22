@@ -90,3 +90,53 @@ begin
   return null;
 end;
 $$;
+
+-- Audit viewer (plan §5 api.list_audit_logs, audit.view). p_business_id null = all businesses and
+-- needs audit.view globally (owner). Newest first; keyset paging with (p_before_at, p_before_id).
+-- Page size is capped by audit.page_size_max.
+create or replace function api.list_audit_logs(
+  p_business_id uuid default null,
+  p_action text default null,
+  p_entity_type text default null,
+  p_entity_id uuid default null,
+  p_actor_id uuid default null,
+  p_from timestamptz default null,
+  p_to timestamptz default null,
+  p_before_at timestamptz default null,
+  p_before_id uuid default null,
+  p_limit integer default 50)
+returns table (id uuid, created_at timestamptz, actor_id uuid, actor_role text, business_id uuid,
+               action text, entity_type text, entity_id uuid, before jsonb, after jsonb,
+               request_id text, ip inet)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.require_auth();
+  if not private.can('audit.view', p_business_id) then
+    perform private.raise_error('FORBIDDEN', 'audit.view');
+  end if;
+  if p_limit is null or p_limit < 1 or p_limit > (private.get_setting('audit.page_size_max'))::integer then
+    perform private.raise_error('VALIDATION_FAILED', 'limit');
+  end if;
+  if (p_before_at is null) <> (p_before_id is null) then
+    perform private.raise_error('VALIDATION_FAILED', 'cursor');
+  end if;
+  return query
+  select a.id, a.created_at, a.actor_id, a.actor_role, a.business_id, a.action, a.entity_type,
+         a.entity_id, a.before, a.after, a.request_id, a.ip
+  from audit.audit_logs a
+  where (p_business_id is null or a.business_id = p_business_id)
+    and (p_action is null or a.action = p_action)
+    and (p_entity_type is null or a.entity_type = p_entity_type)
+    and (p_entity_id is null or a.entity_id = p_entity_id)
+    and (p_actor_id is null or a.actor_id = p_actor_id)
+    and (p_from is null or a.created_at >= p_from)
+    and (p_to is null or a.created_at < p_to)
+    and (p_before_at is null or (a.created_at, a.id) < (p_before_at, p_before_id))
+  order by a.created_at desc, a.id desc
+  limit p_limit;
+end;
+$$;
