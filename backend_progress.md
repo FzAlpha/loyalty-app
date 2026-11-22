@@ -21,6 +21,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [ ] M0: delete spike project after tests
 
 ## Decisions
+- 2026-11-22: Approved M7 defaults: ratelimit.claim_create 30/h; min purchase requires bill amount
 - 2026-11-21: Offer defaults approved: images 5 MB PNG/JPEG/WebP; weekday 0=Sun, end excluded, no midnight wrap, business TZ
 - 2026-11-21: Offer defaults approved: birthday ±N days nearest, no DOB refuses, Feb 29→Feb 28; reason codes 409; upsert replaces all
 - 2026-11-21: Approved defaults: cards.batch_max_quantity 5000, ratelimit.card_link 10/hour
@@ -103,13 +104,19 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] pgTAP 50_offers: 25-case eligibility table + CRUD/RLS/storage (CI green)
   - [ ] customer_groups data file + group membership management RPC (not in plan yet)
   - [ ] Storage upload over HTTP not tested
-- [x] M7 Claims & redemption (defaults + job schedules pending)
+- [x] M7 Claims & redemption (job schedules pending)
   - [x] 60_claims: claim_tokens, create_claim_token, preview_claim, expire/purge jobs
   - [x] 70_redemptions: redemptions, api.redeem_claim (locked, idempotent, limits re-checked)
   - [x] pgTAP 60_claims (58 checks) + Deno concurrency suite (8 checks) green in CI
-  - [ ] Approve new defaults: ratelimit.claim_create 30/h; min purchase requires bill amount
+  - [x] Defaults approved: ratelimit.claim_create 30/h; min purchase requires bill amount
   - [ ] Job schedules (expire_claims, purge_claim_tokens) not seeded
-- [ ] M8 Reporting & audit
+- [x] M8 Reporting & audit (CI green; defaults + streaming decision pending)
+  - [x] 95_reporting: report_summary, report_redemptions (day/month/business/offer/executive), signups, birthdays, export rows
+  - [x] api.list_audit_logs (80_audit, keyset paging)
+  - [x] reports-export Edge Fn (CSV in JSON envelope, capped; not streamed)
+  - [x] pgTAP 95_reporting (42 checks) + edge function checks
+  - [ ] Approve new defaults: report.max_range_days 366, report.export_max_rows 10000, audit.page_size_max 200
+  - [ ] Decide: CSV streaming (plan says streaming; built as capped single response)
 - [ ] M9–10 Hardening & release
 
 ## Open questions (§16.2)
