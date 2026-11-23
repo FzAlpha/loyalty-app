@@ -134,7 +134,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] docs/acceptance-map.md (§12 → named tests)
   - [x] pgTAP 01/21/41/90/99 + HTTP checks — green in CI
   - [x] jobs.process_deletions.batch_size 50 — approved
-  - [!] Hosted JOBS_RUNNER_SECRET — Vault done; fn secret needs user paste
+  - [x] Hosted JOBS_RUNNER_SECRET (Vault + fn secret); pg_net → jobs-runner 200 on staging
 - [ ] M10 Slow-network/low-end tests, runbooks, production cut-over — paused until frontends built
 - [~] Frontends (docs/FRONTEND_PLAN.md)
   - [x] Staging project rewards-app-staging (Free, ap-south-1, prolink)

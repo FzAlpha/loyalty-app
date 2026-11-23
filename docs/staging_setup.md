@@ -12,7 +12,8 @@ Project ref `feiiyzyqtvntipcflbdo` (ap-south-1, Free plan). URL `https://feiiyzy
 ## Applied 2026-11-23 (Claude, browser pane)
 - Signups off, confirm email off, phone on, confirm phone off, Send SMS hook = `private.auth_send_sms_hook`, `api` exposed, IP Address Forwarding on. Other values already matched.
 - Phone could not be saved without Twilio fields until the Send SMS hook was enabled; with the hook on, the dashboard saves it with no credentials.
-- Vault `jobs_runner_secret` generated in-database (`gen_random_bytes(32)`, hex). Still needed: copy it to Edge Function secret `JOBS_RUNNER_SECRET` (user).
+- Vault `jobs_runner_secret` generated in-database (`gen_random_bytes(32)`, hex); user copied it to Edge Function secret `JOBS_RUNNER_SECRET`.
+- Verified: jobs-runner 403 without/wrong secret; pg_net call with Vault values → 200 `claimed: 0`.
 - Data API "Automatically expose new tables" is on (default); left unchanged.
 
 ## Dashboard checklist (user)
