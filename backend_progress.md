@@ -14,7 +14,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [x] Plan updated with M0 results (§1, §7, §16, §17)
 - [x] M0: signups off blocks self-signup + OTP accounts; admin createUser + sign-in still work
 - [x] M0: relayed sign-ins share one Edge Fn IP; throttled after ~30
-- [!] M0: Sb-Forwarded-For fix — needs "IP Address Forwarding" toggle on (user)
+- [~] M0: Sb-Forwarded-For fix — IP Address Forwarding on (staging); retest pending
 - [x] M0: Expo SDK 58 + pnpm isolated linker bundles workspace package
 - [ ] M0: Expo native/EAS build (no Android SDK here; M1)
 - [x] M0: folder wiring — declarative_schema_path to database/schema verified in CI
@@ -134,12 +134,12 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] docs/acceptance-map.md (§12 → named tests)
   - [x] pgTAP 01/21/41/90/99 + HTTP checks — green in CI
   - [x] jobs.process_deletions.batch_size 50 — approved
-  - [!] Hosted JOBS_RUNNER_SECRET (fn secret + Vault) — user, docs/staging_setup.md
+  - [!] Hosted JOBS_RUNNER_SECRET — Vault done; fn secret needs user paste
 - [ ] M10 Slow-network/low-end tests, runbooks, production cut-over — paused until frontends built
 - [~] Frontends (docs/FRONTEND_PLAN.md)
   - [x] Staging project rewards-app-staging (Free, ap-south-1, prolink)
   - [x] Staging: schema, seed, cron, functions deployed + smoke-tested
-  - [!] Staging auth dashboard settings — user, docs/staging_setup.md
+  - [x] Staging auth + Data API dashboard settings (SMS hook, phone, signups off, IP forwarding)
   - [x] F0 backend/contracts committed + drift check
   - [x] F0 packages/shared + packages/api, unit tests — green in CI
   - [x] F0 client-only error codes NETWORK_ERROR/INVALID_RESPONSE — approved

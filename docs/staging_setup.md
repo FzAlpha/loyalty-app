@@ -9,6 +9,12 @@ Project ref `feiiyzyqtvntipcflbdo` (ap-south-1, Free plan). URL `https://feiiyzy
 - Vault: `jobs_runner_url` set.
 - Advisors: only the 7 expected INFO "RLS enabled, no policy" notices (deny by default).
 
+## Applied 2026-11-23 (Claude, browser pane)
+- Signups off, confirm email off, phone on, confirm phone off, Send SMS hook = `private.auth_send_sms_hook`, `api` exposed, IP Address Forwarding on. Other values already matched.
+- Phone could not be saved without Twilio fields until the Send SMS hook was enabled; with the hook on, the dashboard saves it with no credentials.
+- Vault `jobs_runner_secret` generated in-database (`gen_random_bytes(32)`, hex). Still needed: copy it to Edge Function secret `JOBS_RUNNER_SECRET` (user).
+- Data API "Automatically expose new tables" is on (default); left unchanged.
+
 ## Dashboard checklist (user)
 Values mirror `backend/supabase/config.toml`. If a setting can't be found or can't be saved, **stop and report back**. Never enter fake Twilio (or any SMS) credentials on hosted.
 
