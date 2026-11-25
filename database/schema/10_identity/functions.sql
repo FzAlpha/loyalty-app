@@ -498,3 +498,35 @@ begin
       and private.is_customer_only(p.id);
 end;
 $$;
+
+-- ---------------------------------------------------------------- customer reads (F1, plan §6)
+-- Caller's own account. auth.uid() only; card via 40_cards private.customer_card_summary.
+create or replace function api.get_my_account()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := private.require_auth();
+  v_p public.profiles;
+begin
+  if not private.session_is_live() then
+    perform private.raise_error('FORBIDDEN', 'account.view');
+  end if;
+  select * into v_p from public.profiles where id = v_uid;
+  if not found then
+    perform private.raise_error('NOT_FOUND', 'profile');
+  end if;
+  return jsonb_build_object(
+    'full_name', v_p.full_name,
+    'phone_e164', v_p.phone_e164,
+    'date_of_birth', v_p.date_of_birth,
+    'membership_status', v_p.membership_status,
+    'account_status', v_p.account_status,
+    'identity_checked_at', v_p.identity_checked_at,
+    'member_since', v_p.created_at,
+    'card', private.customer_card_summary(v_uid));
+end;
+$$;

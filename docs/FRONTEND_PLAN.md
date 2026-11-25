@@ -57,7 +57,9 @@ Versions are pinned when each app is created. M0 verified Expo SDK 58. I will no
 - Dev backend: a new Free-plan **staging** project. The M0 spike project is removed first.
 - Android testing: **Expo Go** on the user's phone. Dev builds only if a native module needs one.
 - Order: F0, then customer, admin, dashboard.
-- English only; plain accessible styling (NativeWind on mobile, Tailwind on web).
+- English only; NativeWind on mobile, Tailwind on web.
+- 2026-11-25: customer app follows the client's design (image + video): black and gold "Chirag Group Privilege Membership" theme, splash, gold membership card with rotating card-pass QR, benefit tiles by offer category, group companies + websites, offers grid with banners, travel partner offers, WhatsApp share, tabs Home / Offers / Scan / My Account / More. Theme colours live in one theme file; brand logos are image assets from the client. Kept accessible (contrast, font scaling).
+- Not built from the video: ₹100 paid membership, OTP screen, notifications bell.
 
 ## 4.1 Background to the decisions
 
@@ -74,7 +76,7 @@ Versions are pinned when each app is created. M0 verified Expo SDK 58. I will no
 - F0 done: `backend/contracts` is committed (CI drift check), `packages/shared` (Zod schemas, error codes) and `packages/api` (one module per domain) are unit-tested in the CI `packages` job.
 - `packages/api` adds two client-only error codes, `NETWORK_ERROR` and `INVALID_RESPONSE`, that are not in the server catalogue. Unknown server errors map to `UNKNOWN_ERROR_CODE`. Approved 2026-11-22.
 - Generated contract types mark `p_business_id` as non-null, but null means group-wide. `packages/api` casts it (`biz()` in reports.ts).
-- There are no customer read RPCs yet (own profile, card, redemption history). They are needed in F1, and their design must be agreed first.
+- Customer read RPCs agreed 2026-11-23: `api.get_my_account()` and `api.list_my_redemptions(before?, limit?)` (BACKEND_PLAN.md §6). Not built yet. Profile is view-only in F1 (no self-edit).
 - `packages/shared` exports raw `.ts` files (`@rewards/backend/contracts/*`). Whether Metro resolves this is unverified until F1.
 - The hosted password settings (minimum length, secure password change) are unverified; config.toml has `minimum_password_length = 6` and `secure_password_change = false`.
 - Whether Edge Functions can import `packages/shared` is still unverified (BACKEND_PLAN.md §12).

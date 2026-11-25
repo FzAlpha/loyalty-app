@@ -1,0 +1,14 @@
+{
+  "bg": "#0b0b0b",
+  "surface": "#161616",
+  "surface2": "#1f1f1f",
+  "line": "#3a3220",
+  "gold": "#d4af37",
+  "goldLight": "#f3d27a",
+  "goldDark": "#a87a1f",
+  "onGold": "#1a1300",
+  "text": "#f5f5f5",
+  "muted": "#a9a9a9",
+  "danger": "#ff6b6b",
+  "success": "#6bd49a"
+}

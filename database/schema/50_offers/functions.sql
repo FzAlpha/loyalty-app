@@ -94,7 +94,8 @@ $$;
 create or replace function api.list_eligible_offers()
 returns table (
   id uuid, business_id uuid, title text, description text, banner_path text, terms text,
-  starts_at timestamptz, ends_at timestamptz, min_purchase_amount numeric, max_discount_amount numeric)
+  starts_at timestamptz, ends_at timestamptz, min_purchase_amount numeric, max_discount_amount numeric,
+  category_key text)
 language plpgsql
 stable
 security definer
@@ -108,18 +109,32 @@ begin
   end if;
   return query
     select o.id, o.business_id, o.title, o.description, o.banner_path, o.terms, o.starts_at, o.ends_at,
-           o.min_purchase_amount, o.max_discount_amount
+           o.min_purchase_amount, o.max_discount_amount, c.key
     from public.offers o
+    left join public.offer_categories c on c.id = o.category_id
     where o.status = 'active' and o.starts_at <= now() and (o.ends_at is null or o.ends_at > now())
       and (private.evaluate_offer(v_uid, o.id, now())).eligible
     order by o.starts_at desc, o.id;
 end;
 $$;
 
+-- Active categories for the home-screen tiles (F1).
+create or replace function api.list_offer_categories()
+returns table (id uuid, key text, name text, sort_order integer)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select c.id, c.key, c.name, c.sort_order from public.offer_categories c
+  where c.is_active
+  order by c.sort_order, c.name;
+$$;
+
 -- ---------------------------------------------------------------- CRUD (offer.manage)
 -- p_offer: {id?, business_id (new only), title, description, banner_path, terms, starts_at, ends_at,
 -- max_uses_per_customer, total_usage_limit, min_purchase_amount, max_discount_amount,
--- birthday_window_days, schedules?: [{weekday, start_time, end_time}], group_ids?: [uuid]}.
+-- birthday_window_days, category_id, schedules?: [{weekday, start_time, end_time}], group_ids?: [uuid]}.
 -- Updates replace every field (send the full offer). New offers start as draft.
 -- Omitting schedules / group_ids keeps the current rows.
 create or replace function api.upsert_offer(p_offer jsonb)
@@ -166,12 +181,13 @@ begin
     if v_id is null then
       insert into public.offers (business_id, title, description, banner_path, terms, starts_at, ends_at,
         max_uses_per_customer, total_usage_limit, min_purchase_amount, max_discount_amount,
-        birthday_window_days, created_by)
+        birthday_window_days, category_id, created_by)
       values (v_biz, btrim(p_offer ->> 'title'), p_offer ->> 'description', p_offer ->> 'banner_path',
         p_offer ->> 'terms', coalesce((p_offer ->> 'starts_at')::timestamptz, now()),
         (p_offer ->> 'ends_at')::timestamptz, (p_offer ->> 'max_uses_per_customer')::integer,
         (p_offer ->> 'total_usage_limit')::integer, (p_offer ->> 'min_purchase_amount')::numeric,
-        (p_offer ->> 'max_discount_amount')::numeric, (p_offer ->> 'birthday_window_days')::integer, v_uid)
+        (p_offer ->> 'max_discount_amount')::numeric, (p_offer ->> 'birthday_window_days')::integer,
+        (p_offer ->> 'category_id')::uuid, v_uid)
       returning * into v_after;
     else
       update public.offers set
@@ -185,7 +201,8 @@ begin
         total_usage_limit = (p_offer ->> 'total_usage_limit')::integer,
         min_purchase_amount = (p_offer ->> 'min_purchase_amount')::numeric,
         max_discount_amount = (p_offer ->> 'max_discount_amount')::numeric,
-        birthday_window_days = (p_offer ->> 'birthday_window_days')::integer
+        birthday_window_days = (p_offer ->> 'birthday_window_days')::integer,
+        category_id = (p_offer ->> 'category_id')::uuid
       where id = v_id
       returning * into v_after;
     end if;

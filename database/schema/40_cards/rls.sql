@@ -14,3 +14,6 @@ create policy card_assignments_select_staff on public.card_assignments for selec
   using ((select api.has_any_permission('card.view')));
 create policy card_batches_select_owner on public.card_batches for select to authenticated
   using ((select api.has_permission('card.batch.create', null)));
+
+-- card_passes: no policies (deny all). Read and written only by api.create_card_pass / api.scan_card.
+alter table public.card_passes enable row level security;

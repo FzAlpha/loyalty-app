@@ -21,6 +21,14 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [x] M0: spike project deleted
 
 ## Decisions
+- 2026-11-25: React Bits effects recreated natively with Reanimated (not the web library)
+- 2026-11-25: Customer app uses legacy anon JWT key (supabase-js 2.45.4); session in AsyncStorage (not encrypted)
+- 2026-11-25: Card numbers keep GR prefix; TCG from the client video not used
+- 2026-11-25: Card pass QR kind P, TTL 5 min, one pass row per customer
+- 2026-11-25: Partner offers info only; non-members get an empty list; categories from seed file
+- 2026-11-25: Defaults (not user-confirmed): customer.history.page_max 50; list_businesses ordered by name
+- 2026-11-25: Client design adopted; no payment/OTP; added card pass QR, businesses category+website, WhatsApp share, partner offers, offer categories
+- 2026-11-23: Customer reads via new RPCs api.get_my_account, api.list_my_redemptions; profile view-only in F1
 - 2026-11-22: Staging deployed via Supabase MCP tools; CI deploy job before production
 - 2026-11-22: Approved client-only error codes NETWORK_ERROR, INVALID_RESPONSE; unknown server errors → UNKNOWN_ERROR_CODE
 - 2026-11-22: Approved M8 defaults: report.max_range_days 366, report.export_max_rows 10000, audit.page_size_max 200; CSV capped, not streamed
@@ -63,6 +71,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - 2026-11-21: Signup = Phone on, confirm off, refusing Send SMS hook, signups off, auth-register only
 - 2026-11-21: Hidden-email identity not needed
 - 2026-11-21: Repo github.com/FzAlpha/loyalty-app; spec PDF kept out of git
+- 2026-11-25: Customer app font: Delius (free OFL) instead of the paid Fruitygreen
 
 ## M1 Foundation
 - [x] Git repo + GitHub remote (FzAlpha/loyalty-app)
@@ -143,7 +152,37 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] F0 backend/contracts committed + drift check
   - [x] F0 packages/shared + packages/api, unit tests — green in CI
   - [x] F0 client-only error codes NETWORK_ERROR/INVALID_RESPONSE — approved
-  - [ ] F1 customer app
+  - [~] F1 customer app
+    - [x] Customer read RPC design approved
+    - [x] Read RPCs get_my_account, list_my_redemptions (SQL + pgTAP)
+    - [x] Card pass QR (create_card_pass, scan_card accepts pass)
+    - [x] Businesses category + website_url, list_businesses
+    - [x] Offer categories + list_offer_categories
+    - [x] 55_partners module + partner offers RPCs
+    - [x] F1 backend on staging; pgTAP 22_f1_customer 53/53; advisors: expected notices only
+    - [~] shared/api schemas + modules written; typecheck/tests not run (no local node_modules)
+    - [!] backend/contracts regen — needs CI codegen (no local Supabase/psql); api typecheck fails until then
+    - [~] Logos cropped from client video (frontend/customer/assets/brand); low quality, originals needed
+    - [!] Business list + website URLs — needed from client
+    - [x] Card number prefix: keep GR (not TCG from video)
+    - [ ] Partner image storage bucket + write policy
+    - [ ] Notification bell (not designed)
+    - [x] frontend/customer scaffold (Expo SDK 58, Expo Router, NativeWind 4.2.7); app typecheck clean
+    - [x] React Bits lookalikes in src/fx: Shiny Text, Tilted Card, Fade Content, Star Border, Count Up (Star Border streak removed: Android did not clip it)
+    - [x] Screens: sign-in, register, recover, home, card QR, offers + claim QR, account + history, more, partners
+    - [~] Web bundle verified (sign-in renders); signed-in screens untested — no staging test account/data
+    - [x] Demo seed database/seed/dev/demo.sql; part 1 (4 businesses, 6 offers, 2 partner offers) on staging
+    - [x] Demo customer activated on staging (part 2): card GR-000001, membership active
+    - [!] Web preview sign-up blocked by CORS — staging `CORS_ALLOWED_ORIGINS` unset (by design); phone used instead
+    - [x] Native bundle fix: Metro resolves Node-only `ws` (realtime-js fallback) to empty on native
+    - [x] App font: Delius (OFL; single weight, bold is OS-thickened); Fruitygreen is paid Linotype, not bundled
+    - [x] Brand polish: emblem cut-out in gold-ringed badge (home + auth), gold divider, top glow, section accents
+    - [~] Test on phone with Expo Go (registered OK; signed-in screens being checked)
+    - [x] Screens polished: shared PageHeader + MenuRow; Scan, Offers, Account, More, Partners
+    - [x] Screens: link card by QR (expo-camera), change password, account deletion; (member) route group guarded
+    - [ ] Verify on phone: camera scan of a real card QR, change password, deletion (staging)
+    - [!] Change password — hosted secure_password_change / min length unverified (reauth may be required)
+    - [ ] WhatsApp refer button (app link unknown); offer banner images (bucket)
   - [ ] F2 admin app
   - [ ] F3 owner dashboard
 

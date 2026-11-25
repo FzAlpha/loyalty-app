@@ -9,3 +9,4 @@ export * from "./schemas/claims.ts";
 export * from "./schemas/admin.ts";
 export * from "./schemas/reports.ts";
 export * from "./schemas/accounts.ts";
+export * from "./schemas/partners.ts";

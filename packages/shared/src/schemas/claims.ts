@@ -42,3 +42,14 @@ export const RedeemClaimOutput = z.object({
   redeemed_at: DateTime,
   replayed: z.boolean(),
 });
+
+// api.list_my_redemptions (70_redemptions, F1): newest first. Page with before = last row's redeemed_at.
+// The page size cap is customer.history.page_max (server).
+export const ListMyRedemptionsInput = z.object({
+  before: DateTime.optional(), limit: z.number().int().positive().optional(),
+});
+export const MyRedemption = z.object({
+  id: Uuid, offer_id: Uuid, offer_title: z.string().nullable(), business_id: Uuid, business_name: z.string().nullable(),
+  redeemed_at: DateTime, bill_amount: Num.nullable(),
+});
+export const ListMyRedemptionsOutput = z.array(MyRedemption);

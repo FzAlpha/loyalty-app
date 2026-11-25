@@ -9,6 +9,7 @@ import { cardsModule } from "./modules/cards.ts";
 import { claimsModule } from "./modules/claims.ts";
 import { identityModule } from "./modules/identity.ts";
 import { offersModule } from "./modules/offers.ts";
+import { partnersModule } from "./modules/partners.ts";
 import { permissionsModule } from "./modules/permissions.ts";
 import { reportsModule } from "./modules/reports.ts";
 import { settingsModule } from "./modules/settings.ts";
@@ -21,6 +22,7 @@ export function createApi(supabase: Client) {
     identity: identityModule(ctx),
     cards: cardsModule(ctx),
     offers: offersModule(ctx),
+    partners: partnersModule(ctx),
     claims: claimsModule(ctx),
     business: businessModule(ctx),
     settings: settingsModule(ctx),

@@ -10,6 +10,8 @@ create table public.businesses (
   phone text,
   timezone text, -- null = locale.timezone setting
   opening_hours jsonb,
+  category text check (char_length(btrim(category)) between 1 and 100), -- shown in the app, e.g. Furniture
+  website_url text check (website_url ~ '^https://[^[:space:]]+$' and char_length(website_url) <= 500),
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

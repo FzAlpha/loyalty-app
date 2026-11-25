@@ -118,3 +118,33 @@ begin
   return private.redemption_result(v_r, false);
 end;
 $$;
+
+-- ---------------------------------------------------------------- customer history (F1, plan §6)
+-- Caller's own redemptions, newest first. Next page: pass the last row's redeemed_at as p_before.
+create or replace function api.list_my_redemptions(p_before timestamptz default null, p_limit integer default null)
+returns table (id uuid, offer_id uuid, offer_title text, business_id uuid, business_name text,
+               redeemed_at timestamptz, bill_amount numeric)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := private.require_auth();
+  v_max integer := (private.get_setting('customer.history.page_max'))::integer;
+begin
+  if not private.session_is_live() then
+    perform private.raise_error('FORBIDDEN', 'redemption.list');
+  end if;
+  if p_limit is not null and p_limit < 1 then
+    perform private.raise_error('VALIDATION_FAILED', 'limit');
+  end if;
+  return query
+    select r.id, r.offer_id, (select b.title from private.offer_brief(r.offer_id) b), r.business_id,
+           private.business_name(r.business_id), r.redeemed_at, r.bill_amount
+    from public.redemptions r
+    where r.customer_id = v_uid and (p_before is null or r.redeemed_at < p_before)
+    order by r.redeemed_at desc
+    limit least(coalesce(p_limit, v_max), v_max);
+end;
+$$;

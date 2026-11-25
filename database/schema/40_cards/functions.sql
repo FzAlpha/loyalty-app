@@ -187,6 +187,108 @@ begin
 end;
 $$;
 
+-- ---------------------------------------------------------------- digital card pass (F1, plan §6)
+-- Payload: {qr.prefix}.{qr.kind.card_pass}.{qr.version.card_pass}.{pass_id}.{base64url(secret)}
+create or replace function private.card_pass_qr_payload(p_pass_id uuid, p_secret bytea)
+returns text
+language sql
+stable
+set search_path = ''
+as $$
+  select concat_ws('.',
+    private.get_setting('qr.prefix') #>> '{}',
+    private.get_setting('qr.kind.card_pass') #>> '{}',
+    private.get_setting('qr.version.card_pass') #>> '{}',
+    p_pass_id::text,
+    private.base64url_encode(p_secret));
+$$;
+
+create or replace function private.parse_card_pass_qr(p_payload text, out pass_id uuid, out secret_hash bytea)
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  v_parts text[] := string_to_array(coalesce(p_payload, ''), '.');
+  v_secret bytea;
+begin
+  if cardinality(v_parts) <> 5
+     or not (private.get_setting('qr.accepted_prefixes') ? v_parts[1])
+     or v_parts[2] <> private.get_setting('qr.kind.card_pass') #>> '{}'
+     or v_parts[5] !~ '^[A-Za-z0-9_-]+$' then
+    perform private.raise_error('INVALID_QR');
+  end if;
+  if v_parts[3] = '1' then
+    begin
+      pass_id := v_parts[4]::uuid;
+      v_secret := private.base64url_decode(v_parts[5]);
+    exception when others then
+      perform private.raise_error('INVALID_QR');
+    end;
+    if octet_length(v_secret) < 32 then
+      perform private.raise_error('INVALID_QR');
+    end if;
+  else
+    perform private.raise_error('INVALID_QR');
+  end if;
+  secret_hash := sha256(v_secret);
+end;
+$$;
+
+-- New pass for the caller's pending or active card. Replaces any older pass (one row per customer).
+-- Rate limited, not audited (the app refreshes it every few minutes).
+create or replace function api.create_card_pass()
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := private.require_auth();
+  v_card public.cards;
+  v_secret bytea := extensions.gen_random_bytes(32);
+  v_id uuid;
+  v_expires timestamptz;
+begin
+  if not private.session_is_live() then
+    perform private.raise_error('FORBIDDEN', 'card_pass.create');
+  end if;
+  perform private.consume_rate_limit('card_pass', v_uid::text);
+  select * into v_card from public.cards
+  where current_customer_id = v_uid and status in ('pending', 'active')
+  order by (status = 'active') desc, updated_at desc
+  limit 1;
+  if not found then
+    perform private.raise_error('CARD_INACTIVE');
+  end if;
+  v_expires := now() + make_interval(secs => (private.get_setting('cards.pass_ttl_seconds'))::integer);
+  insert into public.card_passes as p (card_id, customer_id, secret_hash, expires_at)
+  values (v_card.id, v_uid, sha256(v_secret), v_expires)
+  on conflict (customer_id) do update
+    set id = excluded.id, card_id = excluded.card_id, secret_hash = excluded.secret_hash,
+        expires_at = excluded.expires_at, created_at = now()
+  returning p.id into v_id;
+  return jsonb_build_object('qr_payload', private.card_pass_qr_payload(v_id, v_secret), 'expires_at', v_expires,
+                            'card_number', v_card.card_number, 'card_status', v_card.status);
+end;
+$$;
+
+-- Caller's current card for the account screen (10_identity api.get_my_account): live card first,
+-- else the most recently changed one. Never the token.
+create or replace function private.customer_card_summary(p_customer_id uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object('card_number', c.card_number, 'status', c.status)
+  from public.cards c
+  where c.current_customer_id = p_customer_id
+  order by (c.status = 'active') desc, (c.status = 'pending') desc, c.updated_at desc
+  limit 1;
+$$;
+
 -- ---------------------------------------------------------------- approval (M4, §6)
 -- Staff scan at the acting business (card.view). Customer details are masked.
 create or replace function api.scan_card(p_qr_payload text, p_business_id uuid)
@@ -201,12 +303,31 @@ declare
   v_card public.cards;
   v_customer jsonb;
   v_pending jsonb;
+  v_pass public.card_passes;
+  v_pass_id uuid;
+  v_pass_hash bytea;
 begin
   perform private.require_permission('card.view', p_business_id);
-  v_hash := private.parse_card_qr(p_qr_payload);
-  select * into v_card from public.cards where token_hash = v_hash;
-  if not found then
-    perform private.raise_error('INVALID_QR');
+  if cardinality(string_to_array(coalesce(p_qr_payload, ''), '.')) = 5 then
+    -- Digital card pass from the customer app (F1).
+    select * into v_pass_id, v_pass_hash from private.parse_card_pass_qr(p_qr_payload);
+    select * into v_pass from public.card_passes where id = v_pass_id;
+    if not found or v_pass.secret_hash <> v_pass_hash then
+      perform private.raise_error('INVALID_QR');
+    end if;
+    if v_pass.expires_at <= now() then
+      perform private.raise_error('CARD_PASS_EXPIRED');
+    end if;
+    select * into v_card from public.cards where id = v_pass.card_id;
+    if v_card.status not in ('pending', 'active') or v_card.current_customer_id is distinct from v_pass.customer_id then
+      perform private.raise_error('CARD_INACTIVE');
+    end if;
+  else
+    v_hash := private.parse_card_qr(p_qr_payload);
+    select * into v_card from public.cards where token_hash = v_hash;
+    if not found then
+      perform private.raise_error('INVALID_QR');
+    end if;
   end if;
   if v_card.current_customer_id is not null then
     v_customer := private.customer_masked(v_card.current_customer_id);

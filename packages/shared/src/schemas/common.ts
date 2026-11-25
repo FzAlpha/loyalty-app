@@ -16,6 +16,8 @@ export const NonEmpty = z.string().trim().min(1);
 export const Name = NonEmpty.max(200);
 // The QR payload format is versioned and parsed by the server (plan §6.2), so only shape is checked.
 export const QrPayload = NonEmpty;
+// Same pattern as the website_url / claim_url checks (20_businesses, 55_partners).
+export const HttpsUrl = z.string().trim().regex(/^https:\/\/\S+$/).max(500);
 
 export const AccountStatus = z.enum(E.account_status);
 export const CardStatus = z.enum(E.card_status);
@@ -25,6 +27,7 @@ export const IdentityCheckResult = z.enum(E.identity_check_result);
 export const IdentityEvidence = z.enum(E.identity_evidence);
 export const MembershipStatus = z.enum(E.membership_status);
 export const OfferStatus = z.enum(E.offer_status);
+export const PartnerOfferStatus = z.enum(E.partner_offer_status);
 export const PhoneReleaseStatus = z.enum(E.phone_release_status);
 export const RecoveryChannel = z.enum(E.recovery_channel);
 

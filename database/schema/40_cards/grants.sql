@@ -20,3 +20,6 @@ revoke all on function api.block_card(uuid, uuid, text) from public, anon;
 grant execute on function api.block_card(uuid, uuid, text) to authenticated;
 revoke all on function api.reissue_card(uuid, text, uuid, text) from public, anon;
 grant execute on function api.reissue_card(uuid, text, uuid, text) to authenticated;
+revoke all on table public.card_passes from public, anon, authenticated;
+revoke all on function api.create_card_pass() from public, anon;
+grant execute on function api.create_card_pass() to authenticated;

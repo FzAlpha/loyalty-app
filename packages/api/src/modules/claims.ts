@@ -2,13 +2,17 @@
 // when redeem() returns data (FRONTEND_PLAN §2).
 import type { z } from "zod";
 import {
-  CreateClaimTokenInput, CreateClaimTokenOutput, PreviewClaimInput, PreviewClaimOutput, RedeemClaimInput,
+  CreateClaimTokenInput, CreateClaimTokenOutput, ListMyRedemptionsInput, ListMyRedemptionsOutput, PreviewClaimInput, PreviewClaimOutput, RedeemClaimInput,
   RedeemClaimOutput,
 } from "@rewards/shared";
 import { withInput, type Ctx } from "../client.ts";
 
 export function claimsModule(ctx: Ctx) {
   return {
+    // Customer redemption history (F1).
+    listMine: (input: z.input<typeof ListMyRedemptionsInput> = {}) => withInput(ListMyRedemptionsInput, input, (v) =>
+      ctx.rpc("list_my_redemptions", { p_before: v.before, p_limit: v.limit }, ListMyRedemptionsOutput)),
+
     create: (input: z.input<typeof CreateClaimTokenInput>) => withInput(CreateClaimTokenInput, input, (v) =>
       ctx.rpc("create_claim_token", { p_offer_id: v.offerId }, CreateClaimTokenOutput)),
 

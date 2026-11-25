@@ -33,7 +33,8 @@ begin
     perform private.raise_error('VALIDATION_FAILED', 'patch');
   end if;
   select k into v_bad from jsonb_object_keys(p_patch) k
-  where k not in ('name', 'logo_path', 'brand_color', 'address', 'phone', 'timezone', 'opening_hours', 'is_active')
+  where k not in ('name', 'logo_path', 'brand_color', 'address', 'phone', 'timezone', 'opening_hours', 'is_active',
+                  'category', 'website_url')
   limit 1;
   if v_bad is not null then
     perform private.raise_error('VALIDATION_FAILED', 'unknown field: ' || v_bad);
@@ -67,7 +68,9 @@ begin
       opening_hours = case when p_patch ? 'opening_hours' then
                         case when jsonb_typeof(p_patch -> 'opening_hours') = 'null' then null else p_patch -> 'opening_hours' end
                       else opening_hours end,
-      is_active     = case when p_patch ? 'is_active' then (p_patch ->> 'is_active')::boolean else is_active end
+      is_active     = case when p_patch ? 'is_active' then (p_patch ->> 'is_active')::boolean else is_active end,
+      category      = case when p_patch ? 'category' then nullif(btrim(p_patch ->> 'category'), '') else category end,
+      website_url   = case when p_patch ? 'website_url' then nullif(btrim(p_patch ->> 'website_url'), '') else website_url end
     where id = p_business_id
     returning * into v_row;
   exception when check_violation or not_null_violation then
@@ -75,4 +78,29 @@ begin
   end;
   return to_jsonb(v_row);
 end;
+$$;
+
+-- Business directory for the apps (F1, plan §6). Active businesses only; public like the table.
+create or replace function api.list_businesses()
+returns table (id uuid, name text, category text, logo_path text, brand_color text, website_url text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select b.id, b.name, b.category, b.logo_path, b.brand_color, b.website_url
+  from public.businesses b
+  where b.is_active
+  order by b.name, b.id;
+$$;
+
+-- Display name for other modules (70_redemptions customer history).
+create or replace function private.business_name(p_business_id uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select b.name from public.businesses b where b.id = p_business_id;
 $$;

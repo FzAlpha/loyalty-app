@@ -1,7 +1,8 @@
 // Physical cards: link, scan, approve/reject, block/reissue, batches (plan §6).
 import type { z } from "zod";
 import {
-  ApproveCardInput, ApproveCardOutput, BlockCardInput, BlockCardOutput, CreateCardBatchInput, CreateCardBatchOutput,
+  ApproveCardInput, ApproveCardOutput, BlockCardInput,
+  CreateCardPassOutput, BlockCardOutput, CreateCardBatchInput, CreateCardBatchOutput,
   LinkCardInput, LinkCardOutput, ReissueCardInput, ReissueCardOutput, RejectCardInput, RejectCardOutput,
   ScanCardInput, ScanCardOutput,
 } from "@rewards/shared";
@@ -9,6 +10,9 @@ import { withInput, type Ctx } from "../client.ts";
 
 export function cardsModule(ctx: Ctx) {
   return {
+    // Digital card QR (F1). Ask for a new one before expires_at; each call replaces the previous pass.
+    createPass: () => ctx.rpc("create_card_pass", {}, CreateCardPassOutput),
+
     link: (input: z.input<typeof LinkCardInput>) => withInput(LinkCardInput, input, (v) =>
       ctx.rpc("link_card", { p_qr_payload: v.qrPayload }, LinkCardOutput)),
 

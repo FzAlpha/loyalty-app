@@ -13,6 +13,7 @@ export const EligibleOffer = z.object({
   ends_at: DateTime.nullable(),
   min_purchase_amount: Num.nullable(),
   max_discount_amount: Num.nullable(),
+  category_key: z.string().nullable(),
 });
 export const ListEligibleOffersOutput = z.array(EligibleOffer);
 
@@ -35,6 +36,7 @@ export const UpsertOfferInput = z.object({
   min_purchase_amount: z.number().nullable().optional(),
   max_discount_amount: z.number().nullable().optional(),
   birthday_window_days: z.number().int().nullable().optional(),
+  category_id: Uuid.nullable().optional(),
   schedules: z.array(OfferSchedule).optional(),
   group_ids: z.array(Uuid).optional(),
 }).strict();
@@ -42,3 +44,7 @@ export const UpsertOfferOutput = z.object({ offer_id: Uuid, status: OfferStatus 
 
 export const SetOfferStatusInput = z.object({ offerId: Uuid, status: OfferStatus });
 export const SetOfferStatusOutput = z.object({ offer_id: Uuid, status: OfferStatus });
+
+// api.list_offer_categories (F1). Rows come from database/seed/reference/offer_categories.sql.
+export const OfferCategory = z.object({ id: Uuid, key: z.string(), name: z.string(), sort_order: z.number().int() });
+export const ListOfferCategoriesOutput = z.array(OfferCategory);

@@ -16,6 +16,12 @@ Project ref `feiiyzyqtvntipcflbdo` (ap-south-1, Free plan). URL `https://feiiyzy
 - Verified: jobs-runner 403 without/wrong secret; pg_net call with Vault values → 200 `claimed: 0`.
 - Data API "Automatically expose new tables" is on (default); left unchanged.
 
+## F1 backend applied 2026-11-25 (Claude, Supabase MCP)
+- Applied only the F1 changes (new tables incl. 55_partners, changed functions, grants/RLS, new seed rows), not a full re-apply.
+- pgTAP `database/tests/22_f1_customer.test.sql`: 53/53 pass, run inside a rolled-back transaction (TAP output returned through a raised error; no psql here).
+- Advisors: only expected notices (RLS-no-policy deny-all tables incl. card_passes; SECURITY DEFINER RPCs; list_businesses open to anon by design; unindexed partner_offers.created_by FK, same as offers).
+- No business rows or partner data loaded yet.
+
 ## Dashboard checklist (user)
 Values mirror `backend/supabase/config.toml`. If a setting can't be found or can't be saved, **stop and report back**. Never enter fake Twilio (or any SMS) credentials on hosted.
 
@@ -42,6 +48,8 @@ Values mirror `backend/supabase/config.toml`. If a setting can't be found or can
 - Phone + password sign-in through `auth-register` / `auth-sign-in` on hosted.
 
 ## Known limitations / unverified
+- F1: only the changed modules were applied, not a full schema re-apply; not byte-diffed against the repo.
+- F1: backend/contracts not regenerated (needs CI codegen).
 - Function sources were transcribed into the deploy calls; only boot-tested, not byte-diffed against the repo. The CI deploy job (planned before production) removes this gap.
 - Phone sign-in on hosted with no SMS provider: not yet tested.
 - Send SMS hook with `private` schema in the dashboard: not yet tested.

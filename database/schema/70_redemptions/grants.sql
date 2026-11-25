@@ -4,3 +4,5 @@ grant select on table public.redemptions to authenticated;
 revoke all on all functions in schema private from public, anon, authenticated;
 revoke all on function api.redeem_claim(text, text, text, numeric) from public, anon;
 grant execute on function api.redeem_claim(text, text, text, numeric) to authenticated;
+revoke all on function api.list_my_redemptions(timestamptz, integer) from public, anon;
+grant execute on function api.list_my_redemptions(timestamptz, integer) to authenticated;

@@ -250,6 +250,12 @@ All primary keys are `uuid` (`gen_random_uuid()`). All tables get `created_at` a
 ### accounts
 - `deletion_requests(id, user_id unique, reason enum[customer_request,unchecked_account], status enum[requested,processing,completed,failed], requested_by, requested_at, process_after, attempts, completed_at, error)`
 
+### F1 additions (approved 2026-11-25, from the client's design video)
+- `businesses`: add `category text null` (e.g. Furniture) and `website_url text null` (https only); values in `database/seed/data/businesses.json`.
+- `cards` module: `card_passes(id, card_id, customer_id, secret_hash bytea, expires_at, created_at)`. Rotating digital card QR; only the hash is stored.
+- `offers` module: `offer_categories(id, key unique, name, sort_order, is_active)` seeded from a data file; `offers.category_id null` FK.
+- New `partners` module: `partners(id, name, logo_path, website_url, is_active)` and `partner_offers(id, partner_id, title, description, banner_path, terms, discount_text, claim_url null, claim_code null, status enum[draft,active,paused,archived], starts_at, ends_at)`. Info-only: no claim QR, no redemption tracking.
+
 ### phase 2 (schema reserved, not built)
 - `purchases`, cross-business offers (behind `offers.cross_business_enabled`).
 
@@ -299,6 +305,13 @@ Every RPC: `SECURITY DEFINER`, `SET search_path = ''`, validates input, calls `r
 | `api.scan_card(qr_payload, business_id)` | RPC (staff) | Returns status, masked customer info (name, last 4 phone digits) and pending request; `card.view` for the acting business (executive permissions are business-scoped) |
 | `api.approve_card(card_id, business_id, evidence[], note?)` / `api.reject_card(card_id, business_id, reason)` | RPC | `card.approve` for the acting business; `SELECT … FOR UPDATE` on card + assignment; approve requires a `passed` identity check recorded in the same call (evidence + result, §7.4), then sets card `active` and profile `active`; reject releases the card back to `unassigned` and sets profile `rejected`; audit |
 | `api.list_eligible_offers()` | RPC | Runs the eligibility engine for the caller |
+| `api.get_my_account()` | RPC (customer, read) | Approved 2026-11-23. Caller's own profile (name, phone, DOB, membership, account status, `identity_checked_at`) and current card (number, status); never the token. `auth.uid()` only, no ID arguments |
+| `api.list_my_redemptions(before?, limit?)` | RPC (customer, read) | Approved 2026-11-23. Caller's own redemptions, newest first, keyset-paged by `redeemed_at`; offer title, business name, time, bill amount. `limit` capped by an `app_settings` key |
+| `api.create_card_pass()` | RPC (customer) | Approved 2026-11-25. Caller's card must be `pending` or `active` → revoke older passes → 32-byte secret, store `sha256` → `expires_at = now() + cards.pass_ttl_seconds` (300) → return `{qr.prefix}.{qr.kind.card_pass}.{qr.version.card_pass}.{pass_id}.{base64url(secret)}` once. Rate limited |
+| `api.scan_card` (extended) | RPC (staff) | Also accepts a card pass payload: valid hash, not expired, card still `pending`/`active` → same response as the physical card QR |
+| `api.list_businesses()` | RPC (read) | Active businesses: id, name, category, logo_path, brand_color, website_url |
+| `api.list_offer_categories()` | RPC (read) | Active categories ordered by `sort_order`; `list_eligible_offers` returns `category_key` |
+| `api.list_partner_offers()` / `api.upsert_partner(…)` / `api.upsert_partner_offer(…)` / `api.set_partner_offer_status(…)` | RPC | List: customers with an active membership see active, in-date offers. Manage: owner, new permission `partner.manage`, audited |
 | `api.create_claim_token(offer_id)` | RPC | Eligibility engine → revoke the previous open token → 32-byte random secret (`gen_random_bytes`) → store `sha256` → `expires_at = now() + get_setting('claims.ttl_seconds')` → return the QR payload **once** |
 | `api.preview_claim(qr_payload)` | RPC (staff) | Returns a safe preview plus flags: `EXPIRED`, `USED`, `WRONG_BUSINESS`, `NOT_ELIGIBLE`. Does not consume the token |
 | `api.redeem_claim(qr_payload, idempotency_key, bill_number?, bill_amount?)` | RPC (staff) | See §8: atomic, locked and idempotent |
@@ -540,6 +553,7 @@ Each layer has one job, so nothing is defined twice:
 | 28 | Dev backend | New Free-plan staging project; M0 spike project removed first (22 Nov) |
 | 29 | Android testing | Expo Go on the user's phone (22 Nov) |
 | 30 | Frontend order | F0 contracts + `packages/api`, then customer, admin, dashboard; English only; NativeWind/Tailwind (22 Nov) |
+| 31 | Client design video (25 Nov) | No paid membership and no OTP in F1 (no-SMS stands). Added: digital card pass QR (TTL 300 s), group companies + websites, WhatsApp share (no tracking), info-only travel partner offers, offer categories |
 
 ### 16.2 Still open
 1. **Backup storage provider** (which client-owned cloud account/bucket) and **restore-test cadence** (proposed monthly).

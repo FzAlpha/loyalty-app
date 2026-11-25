@@ -25,7 +25,8 @@ insert into public.permissions (key, description) values
   ('customer.release_phone.approve', 'Approve or reject a phone number release'),
   ('report.view',                    'View reports'),
   ('audit.view',                     'View audit logs'),
-  ('settings.manage',                'Change app settings')
+  ('settings.manage',                'Change app settings'),
+  ('partner.manage',                 'Create and edit partners and partner offers')
 on conflict (key) do update set description = excluded.description;
 
 -- Executive: front-of-store work for one business. Owner: everything.

@@ -1,6 +1,6 @@
 // Owner/admin operations: staff-admin Edge Function, business, settings (plan §6).
 import { z } from "zod";
-import { DateTime, Name, Password, PhoneE164, Uuid } from "./common.ts";
+import { DateTime, HttpsUrl, Name, Password, PhoneE164, Uuid } from "./common.ts";
 import type { Json } from "../contracts.ts";
 
 export const StaffRole = z.enum(["executive", "owner"]);
@@ -22,10 +22,19 @@ export const BusinessPatch = z.object({
   timezone: z.string().min(1),
   opening_hours: z.union([z.record(z.unknown()), z.array(z.unknown())]).nullable(),
   is_active: z.boolean(),
+  category: z.string().nullable(),
+  website_url: HttpsUrl.nullable(),
 }).partial().strict().refine((p) => Object.keys(p).length > 0, { message: "empty patch" });
 export const UpdateBusinessInput = z.object({ businessId: Uuid, patch: BusinessPatch });
 // to_jsonb(businesses row): only the stable fields are checked; the rest pass through.
 export const UpdateBusinessOutput = z.object({ id: Uuid, slug: z.string(), name: z.string() }).passthrough();
+
+// api.list_businesses (F1): active group companies, public (anon allowed).
+export const GroupBusiness = z.object({
+  id: Uuid, name: z.string(), category: z.string().nullable(), logo_path: z.string().nullable(),
+  brand_color: z.string().nullable(), website_url: z.string().nullable(),
+});
+export const ListBusinessesOutput = z.array(GroupBusiness);
 
 export const JsonValue: z.ZodType<Json> = z.lazy(() =>
   z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(JsonValue), z.record(JsonValue)]));

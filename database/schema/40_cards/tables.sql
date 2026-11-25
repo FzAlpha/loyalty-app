@@ -67,3 +67,15 @@ begin
     alter publication supabase_realtime add table public.card_assignments;
   end if;
 end $$;
+
+-- Digital card pass (F1, plan §4/§6): short-lived QR shown in the app instead of the physical card.
+-- One row per customer; a new pass replaces the old one. Only the secret's hash is stored.
+create table public.card_passes (
+  id uuid primary key default gen_random_uuid(),
+  card_id uuid not null references public.cards (id),
+  customer_id uuid not null unique references public.profiles (id) on delete cascade,
+  secret_hash bytea not null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+create index card_passes_card_idx on public.card_passes (card_id);

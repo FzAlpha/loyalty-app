@@ -4,6 +4,7 @@ alter table public.customer_groups enable row level security;
 alter table public.customer_group_members enable row level security;
 alter table public.offer_eligible_groups enable row level security;
 alter table public.offer_usage enable row level security;
+alter table public.offer_categories enable row level security;
 
 -- §5: signed-in users read active offers inside their dates; offer managers read all of their
 -- business's offers. No write policies: RPCs only.
@@ -16,6 +17,10 @@ create policy offer_schedules_select on public.offer_schedules for select to aut
   using (exists (select 1 from public.offers o where o.id = offer_id));
 create policy offer_eligible_groups_select on public.offer_eligible_groups for select to authenticated
   using (exists (select 1 from public.offers o where o.id = offer_id));
+create policy offer_categories_select_active on public.offer_categories for select to authenticated
+  using (is_active);
+create policy offer_categories_select_manager on public.offer_categories for select to authenticated
+  using ((select api.has_any_permission('offer.manage')));
 create policy customer_groups_select_staff on public.customer_groups for select to authenticated
   using ((select api.has_any_permission('customer.view')) or (select api.has_any_permission('offer.manage')));
 create policy customer_group_members_select_own on public.customer_group_members for select to authenticated

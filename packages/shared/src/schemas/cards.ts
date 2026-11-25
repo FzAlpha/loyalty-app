@@ -42,3 +42,8 @@ export const CreateCardBatchOutput = z.object({
   cards: z.array(z.object({ card_number: z.string(), qr_payload: z.string() })),
   csv: z.string(),
 });
+
+// api.create_card_pass (F1): short-lived digital card QR for the customer app. TTL is cards.pass_ttl_seconds.
+export const CreateCardPassOutput = z.object({
+  qr_payload: z.string(), expires_at: DateTime, card_number: z.string(), card_status: CardStatus,
+});

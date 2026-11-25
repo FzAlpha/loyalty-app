@@ -3,6 +3,17 @@
 
 create type public.offer_status as enum ('draft', 'active', 'paused', 'archived');
 
+-- Home-screen benefit tiles (F1). Rows come from database/seed/reference/offer_categories.sql.
+create table public.offer_categories (
+  id uuid primary key default gen_random_uuid(),
+  key text not null unique check (key ~ '^[a-z0-9_]+$'),
+  name text not null check (char_length(btrim(name)) between 1 and 100),
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table public.offers (
   id uuid primary key default gen_random_uuid(),
   business_id uuid not null references public.businesses (id),
@@ -11,6 +22,7 @@ create table public.offers (
   banner_path text,
   terms text check (char_length(terms) <= 4000),
   status public.offer_status not null default 'draft',
+  category_id uuid references public.offer_categories (id),   -- null = uncategorised
   starts_at timestamptz not null default now(),
   ends_at timestamptz,                       -- null = open-ended
   max_uses_per_customer integer check (max_uses_per_customer > 0),
@@ -28,6 +40,7 @@ create table public.offers (
   constraint offers_banner_prefix check (banner_path is null or banner_path like business_id::text || '/%')
 );
 create index offers_business_status_idx on public.offers (business_id, status);
+create index offers_category_idx on public.offers (category_id);
 
 -- weekday: 0 = Sunday … 6 = Saturday (Postgres extract(dow)), in the business time zone.
 create table public.offer_schedules (

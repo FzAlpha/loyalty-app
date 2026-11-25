@@ -23,3 +23,5 @@ grant execute on function api.has_any_permission(text) to authenticated;
 grant execute on function api.record_identity_check(uuid, uuid, public.identity_evidence[], public.identity_check_result, text) to authenticated;
 grant execute on function api.request_phone_release(text, uuid, text) to authenticated;
 grant execute on function api.decide_phone_release(uuid, boolean, text) to authenticated;
+revoke all on function api.get_my_account() from public, anon;
+grant execute on function api.get_my_account() to authenticated;

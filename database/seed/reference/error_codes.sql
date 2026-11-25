@@ -44,6 +44,7 @@ insert into public.error_codes (code, http_status, description) values
   ('CARD_NOT_BLOCKABLE', 409, 'Card is already blocked or retired'),
   ('CARD_NOT_REISSUABLE', 409, 'Card has no customer to move to a new card'),
   ('ACCOUNT_DELETION_PENDING', 409, 'Account deletion is already in progress'),
+  ('CARD_PASS_EXPIRED',  409, 'Card QR has expired; refresh it in the app'),
   ('JOBS_NOT_CONFIGURED', 503, 'Scheduled job runner is not configured'),
   ('INTERNAL_ERROR',     500, 'Unexpected server error')
 on conflict (code) do update
