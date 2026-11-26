@@ -209,7 +209,74 @@ const cases: Record<string, Case> = {
     name: "has_permission", args: { p_permission: "cards.approve", p_business_id: U2 }, reply: true },
   "permissions.hasAny": { call: (a) => a.permissions.hasAny({ permission: "reports.view" }), kind: "rpc",
     name: "has_any_permission", args: { p_permission: "reports.view" }, reply: false },
+  "cards.createPass": { call: (a) => a.cards.createPass(), kind: "rpc", name: "create_card_pass", args: {},
+    reply: { qr_payload: "p1.x", expires_at: TS, card_number: "C-1", card_status: "active" } },
+  "offers.listCategories": { call: (a) => a.offers.listCategories(), kind: "rpc", name: "list_offer_categories",
+    args: {}, reply: [] },
+  "partners.listOffers": { call: (a) => a.partners.listOffers(), kind: "rpc", name: "list_partner_offers", args: {},
+    reply: [] },
+  "partners.upsert": { call: (a) => a.partners.upsert({ name: "P" }), kind: "rpc", name: "upsert_partner",
+    args: { p_partner: { name: "P" } }, reply: { partner_id: U1, is_active: true } },
+  "partners.upsertOffer": { call: (a) => a.partners.upsertOffer({ partner_id: U1, title: "T" }), kind: "rpc",
+    name: "upsert_partner_offer", args: { p_offer: { partner_id: U1, title: "T" } },
+    reply: { partner_offer_id: U2, status: "draft" } },
+  "partners.setOfferStatus": { call: (a) => a.partners.setOfferStatus({ offerId: U2, status: "active" }), kind: "rpc",
+    name: "set_partner_offer_status", args: { p_offer_id: U2, p_status: "active" },
+    reply: { partner_offer_id: U2, status: "active" } },
+  "claims.listMine": { call: (a) => a.claims.listMine({ before: TS, limit: 20 }), kind: "rpc",
+    name: "list_my_redemptions", args: { p_before: TS, p_limit: 20 }, reply: [] },
+  "claims.listMineToday": { call: (a) => a.claims.listMineToday({ businessId: U2 }), kind: "rpc",
+    name: "list_my_redemptions_today", args: { p_business_id: U2, p_before: undefined, p_limit: undefined }, reply: [] },
+  "business.list": { call: (a) => a.business.list(), kind: "rpc", name: "list_businesses", args: {}, reply: [] },
+  "business.listManaged": { call: (a) => a.business.listManaged(), kind: "rpc", name: "list_managed_businesses",
+    args: {}, reply: [] },
+  "business.create": { call: (a) => a.business.create({ name: "N", timezone: null }), kind: "rpc",
+    name: "create_business", args: { p_business: { name: "N", timezone: null } },
+    reply: { id: U2, slug: "n", name: "N", is_active: true } },
+  "staff.me": { call: (a) => a.staff.me(), kind: "rpc", name: "get_my_staff", args: {},
+    reply: { user_id: U1, display_name: "E", role: "executive", business_id: U2, business_name: "B", is_active: true,
+      must_change_password: false } },
+  "accounts.me": { call: (a) => a.accounts.me(), kind: "rpc", name: "get_my_account", args: {},
+    reply: { full_name: "A", phone_e164: "+919800000001", date_of_birth: null, membership_status: "active",
+      account_status: "active", identity_checked_at: null, member_since: TS, card: null } },
 };
+
+describe("business.remove (row delete, then Storage clean-up)", () => {
+  const rpc = () => ok({ asset_bucket: "business-assets", asset_prefix: U2 });
+  it("removes every file under the business folder, including subfolders", async () => {
+    const { client, calls } = fake({
+      rpc,
+      storage: {
+        list: (dir) => dir === U2
+          ? { data: [{ id: "f1", name: "logo.png" }, { id: null, name: "old" }], error: null }
+          : { data: [{ id: "f2", name: "a.png" }], error: null },
+      },
+    });
+    expect(await createApi(client).business.remove({ businessId: U2 })).toEqual({ data: { filesLeft: false } });
+    expect(calls[0]).toMatchObject({ kind: "rpc", name: "delete_business", args: { p_business_id: U2 } });
+    expect(calls.at(-1)).toEqual({ kind: "storage", name: "remove",
+      args: { bucket: "business-assets", paths: [`${U2}/logo.png`, `${U2}/old/a.png`] } });
+  });
+  it("an empty folder needs no remove call", async () => {
+    const { client, calls } = fake({ rpc });
+    expect(await createApi(client).business.remove({ businessId: U2 })).toEqual({ data: { filesLeft: false } });
+    expect(calls.filter((c) => c.name === "remove")).toEqual([]);
+  });
+  it("a Storage failure still reports the delete, with filesLeft", async () => {
+    const f1 = fake({ rpc, storage: { list: () => ({ data: null, error: { message: "x" } }) } });
+    expect(await createApi(f1.client).business.remove({ businessId: U2 })).toEqual({ data: { filesLeft: true } });
+    const f2 = fake({
+      rpc,
+      storage: { list: () => ({ data: [{ id: "f1", name: "logo.png" }], error: null }), remove: () => ({ error: { message: "x" } }) },
+    });
+    expect(await createApi(f2.client).business.remove({ businessId: U2 })).toEqual({ data: { filesLeft: true } });
+  });
+  it("a refused delete touches no files", async () => {
+    const { client, calls } = fake({ rpc: () => pgError(409, "PT409", "BUSINESS_IN_USE") });
+    expect(await createApi(client).business.remove({ businessId: U2 })).toEqual({ error: { code: "BUSINESS_IN_USE" } });
+    expect(calls).toHaveLength(1);
+  });
+});
 
 describe("operation wiring", () => {
   for (const [label, c] of Object.entries(cases)) {
@@ -230,7 +297,7 @@ describe("operation wiring", () => {
     const api = createApi(fake().client) as unknown as Record<string, Record<string, unknown>>;
     const all = Object.entries(api).flatMap(([m, fns]) => Object.keys(fns).map((f) => `${m}.${f}`));
     const covered = new Set([...Object.keys(cases), "auth.register", "auth.signIn", "auth.changePassword",
-      "auth.signOut", "cards.link", "offers.listEligible"]);
+      "auth.signOut", "cards.link", "offers.listEligible", "business.remove"]);
     expect(all.filter((n) => !covered.has(n))).toEqual([]);
   });
 });

@@ -15,7 +15,6 @@ Installing native packages: `npx expo install` needs `pnpm` on PATH. Without it,
 
 ## Known limitations
 - Session is stored in AsyncStorage, which is not encrypted.
-- `backend/contracts` is stale for the F1 RPCs, so typecheck of `packages/api` fails until CI regenerates it. App code itself typechecks.
 - Shiny Text falls back to plain gold text on web (MaskedView is native only).
 - Not built yet: link card by QR (needs expo-camera), change password, account deletion, WhatsApp refer, offer banner images.
 - Logos are low-res crops from the client video; originals needed.
