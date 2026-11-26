@@ -26,6 +26,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - 2026-11-26: F2 admin reads via new RPCs api.get_my_staff, api.list_my_redemptions_today (business time zone)
 - 2026-11-26: Admin app reuses customer black/gold theme + Delius, plainer and larger controls; theme moved to packages/ui
 - 2026-11-26: Owner mode = business picker + same flows; block/reissue and staff management in F3
+- 2026-11-26: Dashboard calls Edge Functions via a Next.js server proxy (no CORS secret); rate limits see the server IP
 - 2026-11-26: Default (not user-confirmed): staff.today.page_max 100
 - 2026-11-25: React Bits effects recreated natively with Reanimated (not the web library)
 - 2026-11-25: Customer app uses legacy anon JWT key (supabase-js 2.45.4); session in AsyncStorage (not encrypted)
@@ -208,7 +209,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
     - [x] Security scan false positives (comments) fixed
     - [x] CI: contracts regenerated from CI artifact; packages typecheck clean
     - [x] packages/api unit tests: wiring for F1/F2 functions + business.remove storage clean-up (66/66)
-  - [ ] F3 owner dashboard
+  - [~] F3 owner dashboard — sign-in + businesses add/delete tested on staging; list_offers/list_staff RPCs todo
 
 ## Open questions (§16.2)
 - [ ] Sb-Forwarded-For retest with IP Address Forwarding on
