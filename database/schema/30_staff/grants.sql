@@ -12,3 +12,6 @@ grant execute on function api.svc_staff_mark_password_reset(uuid, uuid) to servi
 
 revoke all on function api.staff_password_changed() from public, anon;
 grant execute on function api.staff_password_changed() to authenticated;
+
+revoke all on function api.get_my_staff() from public, anon;
+grant execute on function api.get_my_staff() to authenticated;

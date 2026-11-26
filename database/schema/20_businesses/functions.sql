@@ -104,3 +104,143 @@ set search_path = ''
 as $$
   select b.name from public.businesses b where b.id = p_business_id;
 $$;
+
+-- Active check for other modules (50_offers eligibility, 40_cards staff actions). Unknown id = inactive.
+create or replace function private.business_is_active(p_business_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce((select b.is_active from public.businesses b where b.id = p_business_id), false);
+$$;
+
+-- Raises BUSINESS_INACTIVE for a deactivated business. Null is left to the caller's own check.
+create or replace function private.require_business_active(p_business_id uuid)
+returns void
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if p_business_id is not null and not private.business_is_active(p_business_id) then
+    perform private.raise_error('BUSINESS_INACTIVE');
+  end if;
+end;
+$$;
+
+-- Owner adds a business (business.manage at owner scope). p_business: {name (required), category,
+-- address, phone, website_url, timezone, brand_color}. slug comes from the name (unique, -2, -3...).
+create or replace function api.create_business(p_business jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_row public.businesses;
+  v_bad text;
+  v_name text;
+  v_base text;
+  v_slug text;
+  v_n integer := 1;
+begin
+  perform private.require_permission('business.manage', null);
+  if p_business is null or jsonb_typeof(p_business) <> 'object' then
+    perform private.raise_error('VALIDATION_FAILED', 'business');
+  end if;
+  select k into v_bad from jsonb_object_keys(p_business) k
+  where k not in ('name', 'category', 'address', 'phone', 'website_url', 'timezone', 'brand_color')
+     or jsonb_typeof(p_business -> k) not in ('string', 'null')
+  limit 1;
+  if v_bad is not null then
+    perform private.raise_error('VALIDATION_FAILED', 'field: ' || v_bad);
+  end if;
+  v_name := btrim(p_business ->> 'name');
+  if v_name is null or v_name = '' then
+    perform private.raise_error('VALIDATION_FAILED', 'name');
+  end if;
+  if nullif(btrim(p_business ->> 'timezone'), '') is not null
+     and not exists (select 1 from pg_catalog.pg_timezone_names where name = btrim(p_business ->> 'timezone')) then
+    perform private.raise_error('VALIDATION_FAILED', 'timezone');
+  end if;
+
+  -- Accents are removed first (unaccent); other scripts (e.g. Devanagari) still drop out, then 'business'.
+  v_base := left(btrim(regexp_replace(lower(extensions.unaccent('extensions.unaccent'::regdictionary, v_name)),
+    '[^a-z0-9]+', '-', 'g'), '-'), 60);
+  v_base := btrim(v_base, '-');
+  if v_base = '' then
+    v_base := 'business';
+  end if;
+  v_slug := v_base;
+  while exists (select 1 from public.businesses b where b.slug = v_slug) loop
+    v_n := v_n + 1;
+    v_slug := v_base || '-' || v_n;
+  end loop;
+
+  begin
+    insert into public.businesses (slug, name, category, address, phone, website_url, timezone, brand_color)
+    values (v_slug, v_name,
+            nullif(btrim(p_business ->> 'category'), ''),
+            nullif(btrim(p_business ->> 'address'), ''),
+            nullif(btrim(p_business ->> 'phone'), ''),
+            nullif(btrim(p_business ->> 'website_url'), ''),
+            nullif(btrim(p_business ->> 'timezone'), ''),
+            nullif(btrim(p_business ->> 'brand_color'), ''))
+    returning * into v_row;
+  exception
+    when check_violation or not_null_violation then
+      perform private.raise_error('VALIDATION_FAILED', 'business fields');
+    when unique_violation then
+      perform private.raise_error('CONFLICT', 'slug');
+  end;
+  return to_jsonb(v_row);
+end;
+$$;
+
+-- Owner deletes a business that nothing references yet (no staff, offers, cards decisions, claims...).
+-- Anything else keeps its history: BUSINESS_IN_USE, deactivate instead. Audit rows stay (no FK).
+-- Returns where the business's files live ({asset_bucket, asset_prefix}). SQL cannot delete Storage
+-- objects, so the caller removes them through the Storage API (owner may: api.storage_can_write).
+drop function if exists api.delete_business(uuid);
+create function api.delete_business(p_business_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.require_permission('business.manage', null);
+  if p_business_id is null then
+    perform private.raise_error('VALIDATION_FAILED', 'business_id required');
+  end if;
+  perform 1 from public.businesses where id = p_business_id for update;
+  if not found then
+    perform private.raise_error('NOT_FOUND', 'business');
+  end if;
+  begin
+    delete from public.businesses where id = p_business_id;
+  exception when foreign_key_violation then
+    perform private.raise_error('BUSINESS_IN_USE');
+  end;
+  return jsonb_build_object(
+    'asset_bucket', private.get_setting('storage.bucket.business_assets') #>> '{}',
+    'asset_prefix', p_business_id::text);
+end;
+$$;
+
+-- Owner's list for the admin app: every business, active or not (owner scope only).
+create or replace function api.list_managed_businesses()
+returns setof public.businesses
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.require_permission('business.manage', null);
+  return query select * from public.businesses b order by b.is_active desc, b.name, b.id;
+end;
+$$;

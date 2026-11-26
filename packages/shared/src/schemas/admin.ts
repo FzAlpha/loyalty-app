@@ -12,6 +12,13 @@ export const StaffUserInput = z.object({ userId: Uuid });
 export const ResetStaffPasswordInput = z.object({ userId: Uuid, tempPassword: Password });
 export const StaffAdminOutput = z.object({ user_id: Uuid });
 
+// api.get_my_staff (30_staff, F2): the signed-in staff member's own context, for admin-app routing only.
+// Every RPC still checks permissions server side.
+export const MyStaffOutput = z.object({
+  user_id: Uuid, display_name: z.string(), role: StaffRole, business_id: Uuid.nullable(),
+  business_name: z.string().nullable(), is_active: z.boolean(), must_change_password: z.boolean(),
+});
+
 // Keys accepted by api.update_business (20_businesses).
 export const BusinessPatch = z.object({
   name: z.string().trim().min(1),
@@ -35,6 +42,24 @@ export const GroupBusiness = z.object({
   brand_color: z.string().nullable(), website_url: z.string().nullable(),
 });
 export const ListBusinessesOutput = z.array(GroupBusiness);
+
+// Owner adds a business: api.create_business (slug is made from the name on the server).
+const OptText = z.string().trim().nullable().optional();
+export const CreateBusinessInput = z.object({
+  name: z.string().trim().min(1).max(200),
+  category: OptText, address: OptText, phone: OptText, timezone: OptText, brand_color: OptText,
+  website_url: HttpsUrl.nullable().optional(),
+}).strict();
+export const DeleteBusinessInput = z.object({ businessId: Uuid });
+// api.delete_business: where the deleted business's files live (removed afterwards via the Storage API).
+export const DeleteBusinessOutput = z.object({ asset_bucket: z.string().min(1), asset_prefix: Uuid });
+// api.list_managed_businesses (owner): every business row, active or not.
+export const ManagedBusiness = z.object({
+  id: Uuid, slug: z.string(), name: z.string(), category: z.string().nullable(), address: z.string().nullable(),
+  phone: z.string().nullable(), website_url: z.string().nullable(), timezone: z.string().nullable(),
+  brand_color: z.string().nullable(), is_active: z.boolean(),
+}).passthrough();
+export const ListManagedBusinessesOutput = z.array(ManagedBusiness);
 
 export const JsonValue: z.ZodType<Json> = z.lazy(() =>
   z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(JsonValue), z.record(JsonValue)]));

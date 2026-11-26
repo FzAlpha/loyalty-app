@@ -1,5 +1,8 @@
 -- 20_businesses (plan §4 businesses). Rows come from database/seed/data/businesses.json (client-provided).
 
+-- unaccent: business slugs keep Latin letters without accents ("Café" -> "cafe").
+create extension if not exists unaccent with schema extensions;
+
 create table public.businesses (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique check (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
