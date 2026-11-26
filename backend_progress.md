@@ -209,7 +209,13 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
     - [x] Security scan false positives (comments) fixed
     - [x] CI: contracts regenerated from CI artifact; packages typecheck clean
     - [x] packages/api unit tests: wiring for F1/F2 functions + business.remove storage clean-up (66/66)
-  - [~] F3 owner dashboard — sign-in + businesses add/delete tested on staging; list_offers/list_staff RPCs todo
+  - [~] F3 owner dashboard — sign-in + businesses add/delete tested on staging
+    - [x] RPCs list_offers, list_staff (owner); staging migration; pgTAP 24_owner_lists 8/8 on staging
+    - [x] Partner-images bucket + get_storage_buckets RPC; staging migration applied
+    - [x] api: offers.listAll, staff.list, storage.buckets/upload/publicUrl (72/72 unit tests)
+    - [x] Dashboard: real offer/staff lists; logo + banner upload tested on staging
+    - [ ] contracts hand-edited; regenerate from CI artifact if codegen:check fails
+    - [ ] Replaced banner/logo files are not removed from Storage
 
 ## Open questions (§16.2)
 - [ ] Sb-Forwarded-For retest with IP Address Forwarding on

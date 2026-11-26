@@ -12,6 +12,7 @@ export function fake(opts: {
   auth?: Partial<Record<"setSession" | "updateUser" | "signOut", (a: unknown) => AuthRes>>;
   // Storage: list(dir) returns the folder's items (folders have id null); remove(paths) may fail.
   storage?: { list?: (dir: string, offset: number) => { data: unknown[] | null; error: unknown };
+    upload?: (path: string) => { data: { path: string } | null; error: unknown };
     remove?: (paths: string[]) => { error: unknown } };
 } = {}) {
   const calls: Call[] = [];
@@ -44,6 +45,11 @@ export function fake(opts: {
           calls.push({ kind: "storage", name: "remove", args: { bucket, paths } });
           return opts.storage?.remove?.(paths) ?? { data: [], error: null };
         },
+        upload: async (path: string, _file: unknown, o: { upsert?: boolean; contentType?: string }) => {
+          calls.push({ kind: "storage", name: "upload", args: { bucket, path, ...o } });
+          return opts.storage?.upload?.(path) ?? { data: { path }, error: null };
+        },
+        getPublicUrl: (path: string) => ({ data: { publicUrl: `https://fake/${bucket}/${path}` } }),
       }),
     },
     auth: { setSession: authCall("setSession"), updateUser: authCall("updateUser"), signOut: authCall("signOut") },

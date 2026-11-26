@@ -43,6 +43,9 @@ export type Database = {
 "get_my_staff":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"get_storage_buckets":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
 "has_any_permission":
 { Args: { "p_permission": string }; Returns: boolean
                            },
@@ -93,9 +96,22 @@ export type Database = {
               "id": string,"key": string,"name": string,"sort_order": number
             }[]
                            },
+"list_offers":
+{ Args: { "p_business_id"?: string }; Returns: Database["public"]['Tables']["offers"]['Row'][]
+                          SetofOptions: {
+        from: "*"
+        to: "offers"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "list_partner_offers":
 { Args: Record<PropertyKey, never>; Returns: {
               "banner_path": string,"claim_code": string,"claim_url": string,"description": string,"discount_text": string,"ends_at": string,"id": string,"partner_id": string,"partner_logo_path": string,"partner_name": string,"partner_website_url": string,"starts_at": string,"terms": string,"title": string
+            }[]
+                           },
+"list_staff":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "business_id": string,"business_name": string,"created_at": string,"display_name": string,"is_active": boolean,"must_change_password": boolean,"phone_e164": string,"role": string,"user_id": string
             }[]
                            },
 "preview_claim":

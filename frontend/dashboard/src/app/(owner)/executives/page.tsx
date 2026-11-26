@@ -1,23 +1,22 @@
 // Staff accounts through the staff-admin Edge Function (api.staff.*): create, reassign, enable/disable and
 // reset password. The owner types every temporary password; the person must change it at first sign-in.
-// The server has no staff list yet: the page lists accounts handled in this tab (lib/recent.ts) and can
-// open any account by its user ID (shown in the audit log).
+// The list comes from api.list_staff (owner only).
 "use client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { ApiError } from "@rewards/shared";
-import { Badge, Button, Card, Dialog, ErrorBox, Field, Notice, PageHeader, Select } from "@/components/ui";
+import { Badge, Button, Card, Dialog, ErrorBox, Field, Loading, Notice, PageHeader, Select } from "@/components/ui";
 import { api } from "@/lib/api";
 import { errorMessage } from "@/lib/errors";
 import { toE164 } from "@/lib/phone";
-import { useManagedBusinesses, useRecheckAccess } from "@/lib/queries";
-import { useRecent, type RecentStaff } from "@/lib/recent";
+import { apiErrorOf, keys, useManagedBusinesses, useRecheckAccess, useStaffList } from "@/lib/queries";
 import { strings } from "@/lib/strings";
 
 const s = strings.staff;
 type Role = "executive" | "owner";
 type CreateForm = { phone: string; displayName: string; role: Role; businessId: string; tempPassword: string };
 const EMPTY: CreateForm = { phone: "", displayName: "", role: "executive", businessId: "", tempPassword: "" };
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+type Managed = { userId: string; displayName: string; role: Role; businessId: string | null; isActive: boolean };
 
 function message(e: ApiError | null): string {
   if (e?.code === "VALIDATION_FAILED" && e.detail?.split(",").includes("password")) return s.weakTemp;
@@ -27,10 +26,11 @@ function message(e: ApiError | null): string {
 export default function Executives() {
   const businesses = useManagedBusinesses();
   const recheck = useRecheckAccess();
-  const { staff, putStaff } = useRecent();
+  const qc = useQueryClient();
+  const staff = useStaffList();
+  const refresh = () => qc.invalidateQueries({ queryKey: keys.staffList });
   const [create, setCreate] = useState<CreateForm | null>(null);
-  const [manage, setManage] = useState<RecentStaff | null>(null);
-  const [lookupId, setLookupId] = useState("");
+  const [manage, setManage] = useState<Managed | null>(null);
   const [tempPassword, setTempPassword] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export default function Executives() {
   const activeBiz = (businesses.data ?? []).filter((b) => b.is_active);
 
   const fail = (e: ApiError | null) => { recheck(e); setFormError(message(e)); };
-  const open = (st: RecentStaff) => { setFormError(null); setTempPassword(""); setManage(st); };
+  const open = (st: Managed) => { setFormError(null); setTempPassword(""); setManage(st); };
 
   const submitCreate = async () => {
     if (!create) return;
@@ -55,7 +55,7 @@ export default function Executives() {
     });
     setBusy(null);
     if (r.error) return fail(r.error);
-    putStaff({ userId: r.data.user_id, displayName: create.displayName.trim(), role: create.role, businessId, isActive: true });
+    await refresh();
     setCreate(null);
     setNotice(s.created);
   };
@@ -68,19 +68,18 @@ export default function Executives() {
     setBusy(null);
     if (r.error) return fail(r.error);
     after();
+    await refresh();
     setNotice(s.done);
   };
 
-  const reassign = (m: RecentStaff) => {
+  const reassign = (m: Managed) => {
     if (!m.displayName.trim()) return setFormError(strings.auth.required);
     if (m.role === "executive" && !m.businessId) return setFormError(s.needBusiness);
     const businessId = m.businessId || null;
     return run("reassign",
       () => api.staff.reassign({ userId: m.userId, role: m.role, businessId, displayName: m.displayName.trim() }),
-      () => { putStaff({ ...m, businessId, displayName: m.displayName.trim() }); setManage(null); });
+      () => setManage(null));
   };
-
-  const list = Object.values(staff);
 
   return (
     <div className="space-y-6">
@@ -88,34 +87,35 @@ export default function Executives() {
         actions={<Button onClick={() => { setFormError(null); setCreate({ ...EMPTY }); }}>{s.create}</Button>} />
       {notice && <Notice message={notice} />}
 
-      <Card title={s.sessionOnly}>
-        <p className="mb-3 text-xs text-muted">{s.sessionOnlyHint}</p>
-        <form className="mb-4 flex flex-wrap items-end gap-2" onSubmit={(e) => {
-          e.preventDefault();
-          const id = lookupId.trim();
-          if (!UUID.test(id)) return;
-          open(staff[id] ?? { userId: id, displayName: "", role: "executive", businessId: null, isActive: true });
-        }}>
-          <div className="min-w-80"><Field label={s.userId} value={lookupId} onChange={(e) => setLookupId(e.target.value)} /></div>
-          <Button type="submit" tone="plain" disabled={!UUID.test(lookupId.trim())}>{strings.common.edit}</Button>
-        </form>
-        {list.length === 0 ? <p className="text-sm text-muted">{strings.common.none}</p> : (
+      <Card title={s.list}>
+        {staff.isPending ? <Loading /> : staff.isError ? (
+          <ErrorBox message={errorMessage(apiErrorOf(staff.error))} onRetry={() => staff.refetch()} />
+        ) : staff.data.length === 0 ? <p className="text-sm text-muted">{strings.common.none}</p> : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="text-xs uppercase text-muted">
                 <tr>
                   <th className="py-2 pr-4">{s.name}</th><th className="py-2 pr-4">{s.role}</th>
-                  <th className="py-2 pr-4">{s.business}</th><th className="py-2 pr-4" /><th className="py-2" />
+                  <th className="py-2 pr-4">{s.phone}</th><th className="py-2 pr-4">{s.business}</th>
+                  <th className="py-2 pr-4" /><th className="py-2" />
                 </tr>
               </thead>
               <tbody>
-                {list.map((m) => (
-                  <tr key={m.userId} className="border-t border-line">
-                    <td className="py-2 pr-4">{m.displayName}</td>
+                {staff.data.map((m) => (
+                  <tr key={m.user_id} className="border-t border-line">
+                    <td className="py-2 pr-4">{m.display_name}</td>
                     <td className="py-2 pr-4">{s.roles[m.role]}</td>
-                    <td className="py-2 pr-4">{m.businessId ? bizName.get(m.businessId) ?? "—" : "—"}</td>
-                    <td className="py-2 pr-4"><Badge tone={m.isActive ? "ok" : "warn"}>{m.isActive ? s.active : s.disabled}</Badge></td>
-                    <td className="py-2 text-right"><Button tone="plain" onClick={() => open(m)}>{strings.common.edit}</Button></td>
+                    <td className="py-2 pr-4">{m.phone_e164 ?? "—"}</td>
+                    <td className="py-2 pr-4">{m.business_name ?? (m.business_id ? bizName.get(m.business_id) ?? "—" : "—")}</td>
+                    <td className="py-2 pr-4">
+                      <Badge tone={m.is_active ? "ok" : "warn"}>{m.is_active ? s.active : s.disabled}</Badge>
+                      {m.must_change_password && <span className="ml-2 text-xs text-muted">{s.mustChange}</span>}
+                    </td>
+                    <td className="py-2 text-right">
+                      <Button tone="plain" onClick={() => open({
+                        userId: m.user_id, displayName: m.display_name, role: m.role, businessId: m.business_id, isActive: m.is_active,
+                      })}>{strings.common.edit}</Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -171,12 +171,12 @@ export default function Executives() {
             <section className="flex flex-wrap gap-2 border-t border-line pt-4">
               <Button tone="plain" loading={busy === "enable"} disabled={!!busy}
                 onClick={() => run("enable", () => api.staff.enable({ userId: manage.userId }),
-                  () => { const m = { ...manage, isActive: true }; setManage(m); if (m.displayName) putStaff(m); })}>
+                  () => setManage({ ...manage, isActive: true }))}>
                 {s.enable}
               </Button>
               <Button tone="danger" loading={busy === "disable"} disabled={!!busy}
                 onClick={() => run("disable", () => api.staff.disable({ userId: manage.userId }),
-                  () => { const m = { ...manage, isActive: false }; setManage(m); if (m.displayName) putStaff(m); })}>
+                  () => setManage({ ...manage, isActive: false }))}>
                 {s.disable}
               </Button>
             </section>

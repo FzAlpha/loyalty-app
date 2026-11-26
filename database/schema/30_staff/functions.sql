@@ -171,3 +171,25 @@ begin
     'must_change_password', v_s.must_change_password);
 end;
 $$;
+
+-- Owner dashboard: every staff account with role, business and phone.
+create or replace function api.list_staff()
+returns table (user_id uuid, display_name text, role text, business_id uuid, business_name text,
+               phone_e164 text, is_active boolean, must_change_password boolean, created_at timestamptz)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.require_permission('staff.manage', null);
+  return query
+    select s.user_id, s.display_name,
+           case when s.business_id is null then 'owner' else 'executive' end,
+           s.business_id, b.name, p.phone_e164, s.is_active, s.must_change_password, s.created_at
+    from public.staff s
+    join public.profiles p on p.id = s.user_id
+    left join public.businesses b on b.id = s.business_id
+    order by s.is_active desc, s.display_name, s.user_id;
+end;
+$$;

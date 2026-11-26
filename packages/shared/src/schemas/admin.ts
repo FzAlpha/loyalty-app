@@ -57,7 +57,7 @@ export const DeleteBusinessOutput = z.object({ asset_bucket: z.string().min(1), 
 export const ManagedBusiness = z.object({
   id: Uuid, slug: z.string(), name: z.string(), category: z.string().nullable(), address: z.string().nullable(),
   phone: z.string().nullable(), website_url: z.string().nullable(), timezone: z.string().nullable(),
-  brand_color: z.string().nullable(), is_active: z.boolean(),
+  brand_color: z.string().nullable(), is_active: z.boolean(), logo_path: z.string().nullable(),
 }).passthrough();
 export const ListManagedBusinessesOutput = z.array(ManagedBusiness);
 
@@ -66,4 +66,17 @@ export const JsonValue: z.ZodType<Json> = z.lazy(() =>
 export const SetSettingInput = z.object({ key: z.string().min(1), value: JsonValue, businessId: Uuid.optional() });
 export const SetSettingOutput = z.object({
   key: z.string(), business_id: Uuid.nullable(), value: JsonValue, updated_at: DateTime,
+});
+
+// api.list_staff (owner): every staff account with its business.
+export const StaffMember = z.object({
+  user_id: Uuid, display_name: z.string(), role: StaffRole, business_id: Uuid.nullable(),
+  business_name: z.string().nullable(), phone_e164: z.string().nullable(), is_active: z.boolean(),
+  must_change_password: z.boolean(), created_at: DateTime,
+});
+export const ListStaffOutput = z.array(StaffMember);
+
+// api.get_storage_buckets: bucket names from app_settings (storage.bucket.*).
+export const StorageBuckets = z.object({
+  business_assets: z.string().min(1), offer_banners: z.string().min(1), partner_images: z.string().min(1),
 });

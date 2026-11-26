@@ -1,6 +1,6 @@
 -- 55_partners (F1, plan §4): travel and other partner offers shown to members. Info only:
--- no claim QR and no redemption tracking. Image paths are stored, but there is no storage bucket or
--- write policy for partner images yet (open item in backend_progress.md).
+-- no claim QR and no redemption tracking. logo_path / banner_path are paths in the partner-images
+-- bucket ("<partner_id>/..."; write check api.storage_can_write in 50_offers).
 
 create type public.partner_offer_status as enum ('draft', 'active', 'paused', 'archived');
 

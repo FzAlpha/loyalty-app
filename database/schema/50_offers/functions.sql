@@ -270,7 +270,8 @@ $$;
 
 -- ---------------------------------------------------------------- storage (§10)
 -- Writes to the asset buckets need business.manage (business-assets) or offer.manage
--- (offer-banners) for the business named by the first path segment. Bucket names are settings.
+-- (offer-banners) for the business named by the first path segment, or partner.manage held
+-- globally (partner-images; the first segment is a partner id). Bucket names are settings.
 -- Called from storage.objects policies, so it is in api and granted to authenticated.
 create or replace function api.storage_can_write(p_bucket_id text, p_name text)
 returns boolean
@@ -290,8 +291,33 @@ begin
   v_perm := case p_bucket_id
     when private.get_setting('storage.bucket.business_assets') #>> '{}' then 'business.manage'
     when private.get_setting('storage.bucket.offer_banners') #>> '{}' then 'offer.manage'
+    when private.get_setting('storage.bucket.partner_images') #>> '{}' then 'partner.manage'
   end;
-  return v_perm is not null and private.session_is_live() and private.can(v_perm, v_seg::uuid);
+  if v_perm is null or not private.session_is_live() then
+    return false;
+  end if;
+  -- Partners are not business-owned, so partner.manage must be held for no business (owner).
+  if v_perm = 'partner.manage' then
+    return private.can(v_perm, null);
+  end if;
+  return private.can(v_perm, v_seg::uuid);
+end;
+$$;
+
+-- Bucket names for the apps (public URLs and uploads), so clients never hard-code them.
+create or replace function api.get_storage_buckets()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.require_auth();
+  return jsonb_build_object(
+    'business_assets', private.get_setting('storage.bucket.business_assets') #>> '{}',
+    'offer_banners',   private.get_setting('storage.bucket.offer_banners') #>> '{}',
+    'partner_images',  private.get_setting('storage.bucket.partner_images') #>> '{}');
 end;
 $$;
 
@@ -347,5 +373,21 @@ begin
   if not found then
     perform private.raise_error('OFFER_LIMIT_REACHED');
   end if;
+end;
+$$;
+
+-- Owner dashboard: every offer (all statuses), newest first. Optional business filter.
+create or replace function api.list_offers(p_business_id uuid default null)
+returns setof public.offers
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.require_permission('offer.manage', null);
+  return query select * from public.offers o
+    where p_business_id is null or o.business_id = p_business_id
+    order by o.created_at desc, o.id;
 end;
 $$;

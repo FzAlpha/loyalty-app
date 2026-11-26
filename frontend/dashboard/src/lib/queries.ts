@@ -28,6 +28,9 @@ export const keys = {
   staff: ["staff-me"] as const,
   managedBusinesses: ["managed-businesses"] as const,
   categories: ["offer-categories"] as const,
+  offers: ["owner-offers"] as const,
+  staffList: ["staff-list"] as const,
+  buckets: ["storage-buckets"] as const,
   summary: (r: Range) => ["report-summary", r] as const,
   redemptions: (r: Range, g: GroupBy) => ["report-redemptions", r, g] as const,
   signups: (from: string, to: string) => ["report-signups", from, to] as const,
@@ -42,6 +45,14 @@ export const useStaff = (enabled: boolean) =>
 // Owner: every business, active or not.
 export const useManagedBusinesses = () =>
   useQuery({ queryKey: keys.managedBusinesses, queryFn: () => unwrap(api.business.listManaged()) });
+
+// Owner: every offer (any status) and every staff account.
+export const useOffers = () => useQuery({ queryKey: keys.offers, queryFn: () => unwrap(api.offers.listAll()) });
+export const useStaffList = () => useQuery({ queryKey: keys.staffList, queryFn: () => unwrap(api.staff.list()) });
+
+// Storage bucket names (app_settings storage.bucket.*); they rarely change.
+export const useBuckets = () =>
+  useQuery({ queryKey: keys.buckets, queryFn: () => unwrap(api.storage.buckets()), staleTime: Infinity });
 
 export const useOfferCategories = () =>
   useQuery({ queryKey: keys.categories, queryFn: () => unwrap(api.offers.listCategories()) });

@@ -314,6 +314,8 @@ Every RPC: `SECURITY DEFINER`, `SET search_path = ''`, validates input, calls `r
 | `api.list_businesses()` | RPC (read) | Active businesses: id, name, category, logo_path, brand_color, website_url |
 | `api.list_offer_categories()` | RPC (read) | Active categories ordered by `sort_order`; `list_eligible_offers` returns `category_key` |
 | `api.list_partner_offers()` / `api.upsert_partner(…)` / `api.upsert_partner_offer(…)` / `api.set_partner_offer_status(…)` | RPC | List: customers with an active membership see active, in-date offers. Manage: owner, new permission `partner.manage`, audited |
+| `api.list_offers(business_id?)` / `api.list_staff()` | RPC (owner, read) | Approved 2026-11-26 (F3). `offer.manage` / `staff.manage` held globally. Every offer row (any status, optional business filter); every staff account with role, business name, phone, active and must-change-password flags |
+| `api.get_storage_buckets()` | RPC | Any signed-in user. Returns `{business_assets, offer_banners, partner_images}` bucket names from settings (§10); approved 2026-11-26 |
 | `api.create_claim_token(offer_id)` | RPC | Eligibility engine → revoke the previous open token → 32-byte random secret (`gen_random_bytes`) → store `sha256` → `expires_at = now() + get_setting('claims.ttl_seconds')` → return the QR payload **once** |
 | `api.preview_claim(qr_payload)` | RPC (staff) | Returns a safe preview plus flags: `EXPIRED`, `USED`, `WRONG_BUSINESS`, `NOT_ELIGIBLE`. Does not consume the token |
 | `api.redeem_claim(qr_payload, idempotency_key, bill_number?, bill_amount?)` | RPC (staff) | See §8: atomic, locked and idempotent |
@@ -450,7 +452,7 @@ Nightly database backups are **not** a pg_cron job: they run from `.github/workf
 
 ## 10. Storage and Realtime
 
-- Buckets: `business-assets` (logos) and `offer-banners`. Bucket names come from settings or env. Public read; write only with `business.manage` or `offer.manage` for that business (storage RLS on `storage.objects` using a path prefix of `business_id/`). File size and MIME limits are set on the bucket.
+- Buckets: `business-assets` (logos), `offer-banners` and `partner-images` (partner logos and partner offer banners; approved 2026-11-26). Bucket names come from settings (`storage.bucket.*`); apps read them with `api.get_storage_buckets()` (authenticated) and build public URLs from the stored path. Public read; write only with `business.manage` or `offer.manage` for that business (storage RLS on `storage.objects` using a path prefix of `business_id/`), or for `partner-images` with `partner.manage` held globally (owner) and a path prefix of `partner_id/`. File size and MIME limits are set on the bucket.
 - Realtime: publication contains `card_assignments`, `claim_tokens` and `redemptions`. Customers receive only their own rows through RLS; staff receive their business's rows (for the "Today" screen).
 
 ---
