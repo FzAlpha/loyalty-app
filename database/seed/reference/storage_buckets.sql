@@ -3,7 +3,8 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 select b.id, b.id, true, (private.get_setting('storage.max_file_bytes'))::bigint,
        array(select jsonb_array_elements_text(private.get_setting('storage.allowed_mime_types')))
 from (values (private.get_setting('storage.bucket.business_assets') #>> '{}'),
-             (private.get_setting('storage.bucket.offer_banners') #>> '{}')) as b(id)
+             (private.get_setting('storage.bucket.offer_banners') #>> '{}'),
+             (private.get_setting('storage.bucket.partner_images') #>> '{}')) as b(id)
 on conflict (id) do update
   set public = excluded.public,
       file_size_limit = excluded.file_size_limit,

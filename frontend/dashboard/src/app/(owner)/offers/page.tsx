@@ -1,23 +1,26 @@
-// Offers: create/edit (api.upsert_offer) and change status (api.set_offer_status). Ranges, required fields
-// and allowed status changes are checked by the server. Schedules, customer groups and banner upload are
-// not in this screen yet (left unchanged on edit). The list is the interim in-tab list (lib/recent.ts).
+// Offers: list every offer (api.list_offers), create/edit (api.upsert_offer) with an optional banner image,
+// and change status (api.set_offer_status). Ranges, required fields and allowed status changes are checked
+// by the server. Schedules and customer groups are not in this screen yet (left unchanged on edit).
 "use client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import type { ApiError } from "@rewards/shared";
-import { Badge, Button, Dialog, ErrorBox, Field, Notice, PageHeader, Select, TextArea } from "@/components/ui";
+import type { z } from "zod";
+import type { ApiError, OwnerOffer } from "@rewards/shared";
+import { Badge, Button, Dialog, ErrorBox, Field, Loading, Notice, PageHeader, Select, TextArea } from "@/components/ui";
 import { api } from "@/lib/api";
 import { fmtDateTime, isoToLocalInput, localInputToIso } from "@/lib/dates";
 import { errorMessage } from "@/lib/errors";
-import { useManagedBusinesses, useOfferCategories, useRecheckAccess } from "@/lib/queries";
-import { useRecent, type RecentOffer } from "@/lib/recent";
+import { imageUrl, uploadImage } from "@/lib/images";
+import { apiErrorOf, keys, useBuckets, useManagedBusinesses, useOfferCategories, useOffers, useRecheckAccess } from "@/lib/queries";
 import { strings } from "@/lib/strings";
 
 const s = strings.offers;
 const STATUSES = ["draft", "active", "paused", "archived"] as const;
 type Status = (typeof STATUSES)[number];
 
+type Offer = z.infer<typeof OwnerOffer>;
 type Form = {
-  id?: string; business_id: string; title: string; description: string; terms: string; category_id: string;
+  id?: string; business_id: string; banner_path: string | null; banner: File | null; title: string; description: string; terms: string; category_id: string;
   starts_at: string; ends_at: string; min_purchase_amount: string; max_discount_amount: string;
   max_uses_per_customer: string; total_usage_limit: string; birthday_window_days: string;
 };
@@ -34,15 +37,15 @@ const numStr = (n: number | null | undefined) => (n == null ? "" : String(n));
 
 function emptyForm(): Form {
   return {
-    business_id: "", title: "", description: "", terms: "", category_id: "",
+    business_id: "", banner_path: null, banner: null, title: "", description: "", terms: "", category_id: "",
     starts_at: isoToLocalInput(new Date().toISOString()), ends_at: "",
     min_purchase_amount: "", max_discount_amount: "", max_uses_per_customer: "", total_usage_limit: "", birthday_window_days: "",
   };
 }
 
-function toForm(o: RecentOffer): Form {
+function toForm(o: Offer): Form {
   return {
-    id: o.id, business_id: o.business_id ?? "", title: o.title ?? "", description: o.description ?? "", terms: o.terms ?? "",
+    id: o.id, business_id: o.business_id, banner_path: o.banner_path, banner: null, title: o.title ?? "", description: o.description ?? "", terms: o.terms ?? "",
     category_id: o.category_id ?? "", starts_at: isoToLocalInput(o.starts_at), ends_at: isoToLocalInput(o.ends_at),
     min_purchase_amount: numStr(o.min_purchase_amount), max_discount_amount: numStr(o.max_discount_amount),
     max_uses_per_customer: numStr(o.max_uses_per_customer), total_usage_limit: numStr(o.total_usage_limit),
@@ -54,7 +57,10 @@ export default function Offers() {
   const businesses = useManagedBusinesses();
   const categories = useOfferCategories();
   const recheck = useRecheckAccess();
-  const { offers, putOffer } = useRecent();
+  const qc = useQueryClient();
+  const offers = useOffers();
+  const buckets = useBuckets();
+  const bannerBucket = buckets.data?.offer_banners;
   const [form, setForm] = useState<Form | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -90,28 +96,35 @@ export default function Offers() {
       ...nums,
     };
     setBusy("form");
-    const r = await api.offers.upsert(input);
+    let banner_path = form.banner_path;
+    if (form.banner) {
+      if (!bannerBucket) { setBusy(null); return setFormError(s.noBucket); }
+      const up = await uploadImage(bannerBucket, form.business_id, "banner", form.banner);
+      if (up.error) { setBusy(null); return fail(up.error, true); }
+      banner_path = up.data.path;
+    }
+    const r = await api.offers.upsert({ ...input, banner_path });
     setBusy(null);
     if (r.error) return fail(r.error, true);
-    putOffer({ ...input, id: r.data.offer_id, status: r.data.status });
+    await qc.invalidateQueries({ queryKey: keys.offers });
     setForm(null);
     setError(null);
     setNotice(s.saved(s.statuses[r.data.status] ?? r.data.status));
   };
 
-  const setStatus = async (o: RecentOffer, status: Status) => {
+  const setStatus = async (o: Offer, status: Status) => {
     setError(null);
     setNotice(null);
     setBusy(o.id);
     const r = await api.offers.setStatus({ offerId: o.id, status });
     setBusy(null);
     if (r.error) return fail(r.error, false);
-    putOffer({ ...o, status: r.data.status });
+    await qc.invalidateQueries({ queryKey: keys.offers });
     setNotice(`${o.title}: ${s.statuses[r.data.status] ?? r.data.status}`);
   };
 
-  const list = Object.values(offers);
   const set = (k: keyof Form, v: string) => form && setForm({ ...form, [k]: v });
+  const preview = form?.banner ? URL.createObjectURL(form.banner) : imageUrl(bannerBucket, form?.banner_path);
 
   return (
     <div>
@@ -120,17 +133,21 @@ export default function Offers() {
       {notice && <Notice message={notice} />}
       {error && <ErrorBox message={error} />}
 
-      <h2 className="mb-1 text-sm font-semibold text-gold">{s.sessionOnly}</h2>
-      <p className="mb-3 text-xs text-muted">{s.sessionOnlyHint}</p>
-      {list.length === 0 ? <p className="text-sm text-muted">{strings.common.none}</p> : (
+      {offers.isPending ? <Loading /> : offers.isError ? (
+        <ErrorBox message={errorMessage(apiErrorOf(offers.error))} onRetry={() => offers.refetch()} />
+      ) : offers.data.length === 0 ? <p className="text-sm text-muted">{strings.common.none}</p> : (
         <div className="grid gap-3 lg:grid-cols-2">
-          {list.map((o) => (
+          {offers.data.map((o) => (
             <div key={o.id} className="rounded-xl border border-line bg-panel p-4">
+              {o.banner_path && bannerBucket && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imageUrl(bannerBucket, o.banner_path) ?? ""} alt="" className="mb-3 h-32 w-full rounded-lg object-cover" />
+              )}
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="truncate text-lg font-semibold">{o.title}</div>
                   <div className="text-sm text-muted">
-                    {bizName.get(o.business_id ?? "") ?? "—"}{o.category_id ? ` · ${catName.get(o.category_id) ?? ""}` : ""}
+                    {bizName.get(o.business_id) ?? "—"}{o.category_id ? ` · ${catName.get(o.category_id) ?? ""}` : ""}
                   </div>
                   <div className="text-xs text-muted">{fmtDateTime(o.starts_at)} → {fmtDateTime(o.ends_at)}</div>
                 </div>
@@ -164,6 +181,20 @@ export default function Offers() {
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </Select>
+            <div className="space-y-2">
+              <span className="text-sm text-muted">{`${s.banner} (${strings.common.optional})`}</span>
+              {preview && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={preview} alt="" className="h-32 w-full rounded-lg object-cover" />
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <input type="file" accept="image/*" className="text-sm"
+                  onChange={(e) => setForm({ ...form, banner: e.target.files?.[0] ?? null })} />
+                {(form.banner_path || form.banner) && (
+                  <Button tone="plain" onClick={() => setForm({ ...form, banner: null, banner_path: null })}>{s.removeBanner}</Button>
+                )}
+              </div>
+            </div>
             <Field label={s.titleField} value={form.title} maxLength={200} onChange={(e) => set("title", e.target.value)} />
             <TextArea label={`${s.description} (${strings.common.optional})`} value={form.description}
               onChange={(e) => set("description", e.target.value)} />

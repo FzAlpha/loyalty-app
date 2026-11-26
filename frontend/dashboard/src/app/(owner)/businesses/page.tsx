@@ -1,6 +1,7 @@
 // Owner: manage group companies (same flows as frontend/admin businesses.tsx). Add (api.create_business),
 // edit and deactivate/reactivate (api.update_business), delete one that was never used
-// (api.delete_business; BUSINESS_IN_USE otherwise). The server checks business.manage on every call.
+// (api.delete_business; BUSINESS_IN_USE otherwise), and upload a logo (Storage, then logo_path via
+// api.update_business). The server checks business.manage on every call.
 "use client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -8,7 +9,8 @@ import type { ApiError } from "@rewards/shared";
 import { Badge, Button, Dialog, ErrorBox, Field, Loading, Notice, PageHeader, TextArea } from "@/components/ui";
 import { api } from "@/lib/api";
 import { errorMessage } from "@/lib/errors";
-import { apiErrorOf, keys, useManagedBusinesses, useRecheckAccess } from "@/lib/queries";
+import { imageUrl, uploadImage } from "@/lib/images";
+import { apiErrorOf, keys, useBuckets, useManagedBusinesses, useRecheckAccess } from "@/lib/queries";
 import { strings } from "@/lib/strings";
 
 const s = strings.businesses;
@@ -21,6 +23,8 @@ export default function Businesses() {
   const qc = useQueryClient();
   const recheck = useRecheckAccess();
   const list = useManagedBusinesses();
+  const buckets = useBuckets();
+  const logoBucket = buckets.data?.business_assets;
   const [form, setForm] = useState<Form | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +84,20 @@ export default function Businesses() {
     await refresh();
   };
 
+  const uploadLogo = async (id: string, file: File | undefined) => {
+    if (!file) return;
+    reset();
+    if (!logoBucket) return setError(s.noBucket);
+    setBusyId(id);
+    const up = await uploadImage(logoBucket, id, "logo", file);
+    if (up.error) { setBusyId(null); return fail(up.error); }
+    const r = await api.business.update({ businessId: id, patch: { logo_path: up.data.path } });
+    setBusyId(null);
+    if (r.error) return fail(r.error);
+    setNotice(s.logoSaved);
+    await refresh();
+  };
+
   const set = (k: keyof Form) => (v: string) => form && setForm({ ...form, [k]: v });
 
   return (
@@ -98,7 +116,12 @@ export default function Businesses() {
           {list.data.map((b) => (
             <div key={b.id} className="rounded-xl border border-line bg-panel p-4">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                {b.logo_path && logoBucket && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={imageUrl(logoBucket, b.logo_path) ?? ""} alt={s.logo}
+                    className="h-14 w-14 shrink-0 rounded-lg border border-line bg-white object-contain" />
+                )}
+                <div className="min-w-0 flex-1">
                   <div className="truncate text-lg font-semibold">{b.name}</div>
                   {b.category && <div className="text-sm text-muted">{b.category}</div>}
                   {b.address && <div className="text-sm text-muted">{b.address}</div>}
@@ -120,6 +143,11 @@ export default function Businesses() {
                   onClick={() => setActive(b.id, b.name, !b.is_active)}>
                   {b.is_active ? s.deactivate : s.reactivate}
                 </Button>
+                <label className={`inline-flex cursor-pointer items-center rounded-lg border border-line px-3 py-2 text-sm hover:bg-line ${busyId ? "pointer-events-none opacity-50" : ""}`}>
+                  {b.logo_path ? s.changeLogo : s.uploadLogo}
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={(e) => { void uploadLogo(b.id, e.target.files?.[0]); e.target.value = ""; }} />
+                </label>
                 <Button tone="danger" disabled={!!busyId} onClick={() => remove(b.id, b.name)}>{s.delete}</Button>
               </div>
             </div>

@@ -211,6 +211,16 @@ const cases: Record<string, Case> = {
     name: "has_any_permission", args: { p_permission: "reports.view" }, reply: false },
   "cards.createPass": { call: (a) => a.cards.createPass(), kind: "rpc", name: "create_card_pass", args: {},
     reply: { qr_payload: "p1.x", expires_at: TS, card_number: "C-1", card_status: "active" } },
+  "offers.listAll": { call: (a) => a.offers.listAll({ businessId: U2 }), kind: "rpc", name: "list_offers",
+    args: { p_business_id: U2 }, reply: [{ id: U1, business_id: U2, title: "T", description: null, banner_path: null,
+      terms: null, status: "draft", category_id: null, starts_at: TS, ends_at: null, max_uses_per_customer: null,
+      total_usage_limit: null, total_redeemed: 0, min_purchase_amount: null, max_discount_amount: null,
+      birthday_window_days: null, created_at: TS }] },
+  "staff.list": { call: (a) => a.staff.list(), kind: "rpc", name: "list_staff", args: {},
+    reply: [{ user_id: U1, display_name: "E", role: "executive", business_id: U2, business_name: "B",
+      phone_e164: "+919800000001", is_active: true, must_change_password: false, created_at: TS }] },
+  "storage.buckets": { call: (a) => a.storage.buckets(), kind: "rpc", name: "get_storage_buckets", args: {},
+    reply: { business_assets: "a", offer_banners: "b", partner_images: "c" } },
   "offers.listCategories": { call: (a) => a.offers.listCategories(), kind: "rpc", name: "list_offer_categories",
     args: {}, reply: [] },
   "partners.listOffers": { call: (a) => a.partners.listOffers(), kind: "rpc", name: "list_partner_offers", args: {},
@@ -278,6 +288,24 @@ describe("business.remove (row delete, then Storage clean-up)", () => {
   });
 });
 
+describe("storage upload and public URL", () => {
+  it("uploads with upsert and returns the stored path", async () => {
+    const { client, calls } = fake();
+    const file = new Blob(["x"], { type: "image/png" });
+    expect(await createApi(client).storage.upload("a", `${U2}/logo.png`, file)).toEqual({ data: { path: `${U2}/logo.png` } });
+    expect(calls.at(-1)).toMatchObject({ kind: "storage", name: "upload",
+      args: { bucket: "a", path: `${U2}/logo.png`, upsert: true, contentType: "image/png" } });
+  });
+  it("a refused upload is an error with the storage message", async () => {
+    const { client } = fake({ storage: { upload: () => ({ data: null, error: { message: "denied" } }) } });
+    expect(await createApi(client).storage.upload("a", "p/x.png", new Blob(["x"])))
+      .toEqual({ error: { code: "UNKNOWN_ERROR_CODE", detail: "denied" } });
+  });
+  it("builds the public URL", () => {
+    expect(createApi(fake().client).storage.publicUrl("a", "p/x.png")).toBe("https://fake/a/p/x.png");
+  });
+});
+
 describe("operation wiring", () => {
   for (const [label, c] of Object.entries(cases)) {
     it(label, async () => {
@@ -297,7 +325,8 @@ describe("operation wiring", () => {
     const api = createApi(fake().client) as unknown as Record<string, Record<string, unknown>>;
     const all = Object.entries(api).flatMap(([m, fns]) => Object.keys(fns).map((f) => `${m}.${f}`));
     const covered = new Set([...Object.keys(cases), "auth.register", "auth.signIn", "auth.changePassword",
-      "auth.signOut", "cards.link", "offers.listEligible", "business.remove"]);
+      "auth.signOut", "cards.link", "offers.listEligible", "business.remove",
+      "storage.upload", "storage.publicUrl"]);
     expect(all.filter((n) => !covered.has(n))).toEqual([]);
   });
 });

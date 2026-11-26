@@ -14,3 +14,7 @@ revoke all on function api.set_offer_status(uuid, public.offer_status) from publ
 grant execute on function api.set_offer_status(uuid, public.offer_status) to authenticated;
 revoke all on function api.storage_can_write(text, text) from public, anon;
 grant execute on function api.storage_can_write(text, text) to authenticated;
+revoke all on function api.get_storage_buckets() from public, anon;
+grant execute on function api.get_storage_buckets() to authenticated;
+revoke all on function api.list_offers(uuid) from public, anon;
+grant execute on function api.list_offers(uuid) to authenticated;

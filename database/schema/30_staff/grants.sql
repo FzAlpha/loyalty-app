@@ -15,3 +15,5 @@ grant execute on function api.staff_password_changed() to authenticated;
 
 revoke all on function api.get_my_staff() from public, anon;
 grant execute on function api.get_my_staff() to authenticated;
+revoke all on function api.list_staff() from public, anon;
+grant execute on function api.list_staff() to authenticated;

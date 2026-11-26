@@ -14,6 +14,7 @@ import { permissionsModule } from "./modules/permissions.ts";
 import { reportsModule } from "./modules/reports.ts";
 import { settingsModule } from "./modules/settings.ts";
 import { staffModule } from "./modules/staff.ts";
+import { storageModule } from "./modules/storage.ts";
 
 export function createApi(supabase: Client) {
   const ctx = makeCtx(supabase);
@@ -31,6 +32,7 @@ export function createApi(supabase: Client) {
     audit: auditModule(ctx),
     accounts: accountsModule(ctx),
     permissions: permissionsModule(ctx),
+    storage: storageModule(ctx),
   };
 }
 

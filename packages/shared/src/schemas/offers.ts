@@ -48,3 +48,15 @@ export const SetOfferStatusOutput = z.object({ offer_id: Uuid, status: OfferStat
 // api.list_offer_categories (F1). Rows come from database/seed/reference/offer_categories.sql.
 export const OfferCategory = z.object({ id: Uuid, key: z.string(), name: z.string(), sort_order: z.number().int() });
 export const ListOfferCategoriesOutput = z.array(OfferCategory);
+
+// api.list_offers (owner): every offer row, any status, optionally for one business.
+export const OwnerOffer = z.object({
+  id: Uuid, business_id: Uuid, title: z.string(), description: z.string().nullable(),
+  banner_path: z.string().nullable(), terms: z.string().nullable(), status: OfferStatus,
+  category_id: Uuid.nullable(), starts_at: DateTime, ends_at: DateTime.nullable(),
+  max_uses_per_customer: z.number().int().nullable(), total_usage_limit: z.number().int().nullable(),
+  total_redeemed: z.number().int(), min_purchase_amount: Num.nullable(), max_discount_amount: Num.nullable(),
+  birthday_window_days: z.number().int().nullable(), created_at: DateTime,
+}).passthrough();
+export const ListOffersOutput = z.array(OwnerOffer);
+export const ListOffersInput = z.object({ businessId: Uuid.optional() });

@@ -1,7 +1,7 @@
 // Staff accounts through the staff-admin Edge Function (owner).
 import type { z } from "zod";
 import {
-  CreateStaffInput, MyStaffOutput, ReassignStaffInput, ResetStaffPasswordInput, StaffAdminOutput, StaffUserInput,
+  CreateStaffInput, ListStaffOutput, MyStaffOutput, ReassignStaffInput, ResetStaffPasswordInput, StaffAdminOutput, StaffUserInput,
 } from "@rewards/shared";
 import { withInput, type Ctx } from "../client.ts";
 
@@ -9,6 +9,9 @@ export function staffModule(ctx: Ctx) {
   return {
     // Signed-in staff member's own context (F2 admin app).
     me: () => ctx.rpc("get_my_staff", {}, MyStaffOutput),
+
+    // Owner: every staff account with its business.
+    list: () => ctx.rpc("list_staff", {}, ListStaffOutput),
 
     create: (input: z.input<typeof CreateStaffInput>) => withInput(CreateStaffInput, input, (v) =>
       ctx.fn("staff-admin", {

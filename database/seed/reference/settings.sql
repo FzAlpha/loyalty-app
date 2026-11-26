@@ -51,6 +51,7 @@ insert into public.app_settings (key, value, value_schema, description) values
   ('ratelimit.card_pass', '{"capacity":60,"per_seconds":3600}', '{"type":"object","required":["capacity","per_seconds"],"properties":{"capacity":{"type":"integer","minimum":1},"per_seconds":{"type":"integer","minimum":1}}}', 'Digital card passes created per customer'),
   ('storage.bucket.business_assets', '"business-assets"', '{"type":"string","pattern":"^[a-z0-9-]+$"}', 'Bucket for business logos (public read)'),
   ('storage.bucket.offer_banners',   '"offer-banners"',   '{"type":"string","pattern":"^[a-z0-9-]+$"}', 'Bucket for offer banners (public read)'),
+  ('storage.bucket.partner_images',  '"partner-images"',  '{"type":"string","pattern":"^[a-z0-9-]+$"}', 'Bucket for partner logos and partner offer banners (public read)'),
   ('storage.max_file_bytes',         '5242880',           '{"type":"integer","minimum":1}', 'Upload size limit for asset buckets'),
   ('storage.allowed_mime_types',     '["image/png","image/jpeg","image/webp"]', '{"type":"array","minItems":1,"items":{"type":"string"}}', 'MIME types allowed in asset buckets'),
   ('report.max_range_days',           '366',              '{"type":"integer","minimum":1}', 'Longest date range one report may cover'),
