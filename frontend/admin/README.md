@@ -29,6 +29,5 @@ Private Android app for executives and owners. Expo SDK 58 + Expo Router + Nativ
 - On a phone against staging (Expo Go, 2026-11-26): executive and owner sign-in, forced password change, owner business picker, home and Today work (reported by the user). Card scan, offer scan and the disabled-account screens are not yet tested there.
 - Staging test accounts exist (owner + one executive at Demo Dining Lounge); see `docs/staging_setup.md`.
 - Session is stored in AsyncStorage, which is not encrypted.
-- `backend/contracts` is stale for the newer RPCs, so typecheck of `packages/api` fails until CI regenerates it. App code itself typechecks.
 - Businesses: deleting also removes its files from Storage (if that fails the app says so; the row is still deleted). Slugs keep Latin letters without accents ("Café" → "cafe"); other scripts (e.g. Hindi) fall back to "business". Not yet tested on a phone.
 - Owner block/reissue and staff management are not here (planned for the F3 dashboard).

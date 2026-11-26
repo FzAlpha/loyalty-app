@@ -200,13 +200,14 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
     - [ ] Verify on phone against staging: §12 #1, #4, #5, #7 through the UI
     - [x] Staging test staff accounts: owner + executive (Demo Dining Lounge)
     - [x] svc_staff_upsert revokes customer role; applied + checked on staging; 2 test accounts cleaned
-    - [ ] pgTAP 85_security (26 tests) run in CI
+    - [x] pgTAP 85_security (26 tests) run in CI (green 2026-11-26)
     - [ ] Owner block/reissue + staff management (F3)
     - [x] Business add/deactivate/delete: RPCs + staging migration + pgTAP 21 (23/23 on staging) + admin Businesses screen
     - [ ] Businesses screen tested on phone
     - [x] Slug accents (unaccent) + file cleanup on business delete; staging pgTAP 21 25/25
     - [x] Security scan false positives (comments) fixed
-    - [!] CI: codegen drift + packages typecheck fail until contracts are regenerated — needs push + CI artifact
+    - [x] CI: contracts regenerated from CI artifact; packages typecheck clean
+    - [x] packages/api unit tests: wiring for F1/F2 functions + business.remove storage clean-up (66/66)
   - [ ] F3 owner dashboard
 
 ## Open questions (§16.2)
