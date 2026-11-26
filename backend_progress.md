@@ -108,13 +108,13 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
   - [x] ratelimit.* values seeded
   - [x] Phone release frees auth.users.phone (pgTAP + GoTrue e2e green)
   - [x] Local phone login in CI via dummy Twilio block
-- [x] M3 Cards (card-generator tool pending)
+- [x] M3 Cards
   - [x] cards / card_assignments / card_batches tables, RLS, audit (CI green)
   - [x] QR format v1 parse + payload helpers
   - [x] api.create_card_batch + card-batches Edge Function (CSV once, hashes only)
   - [x] api.link_card (double-link guard, staff refused, membership → pending)
   - [x] phone release blocked while card pending/active
-  - [ ] tools/card-generator (print sheets from CSV)
+  - [x] tools/card-generator (print sheets from CSV; QR decode pytest, not tested on a real printer)
 - [x] M4 Approval
   - [x] api.scan_card / approve_card (records passed identity check) / reject_card
   - [x] Realtime on card_assignments

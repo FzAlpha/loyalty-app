@@ -1,0 +1,6 @@
+# Tests only: render the PDF and decode the QR codes back.
+-r requirements.txt
+pytest==9.2.0
+pypdfium2==5.15.2
+opencv-python-headless==5.1.0.95
+numpy==2.5.5
