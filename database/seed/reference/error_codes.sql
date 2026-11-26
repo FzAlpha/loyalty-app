@@ -27,6 +27,8 @@ insert into public.error_codes (code, http_status, description) values
   ('MEMBERSHIP_INACTIVE', 409, 'Membership is not active'),
   ('CARD_INACTIVE',      409, 'No active card'),
   ('OFFER_INACTIVE',     409, 'Offer is not active or outside its dates'),
+  ('BUSINESS_INACTIVE',  409, 'Business is not active'),
+  ('BUSINESS_IN_USE',    409, 'Business has history; deactivate it instead'),
   ('OUTSIDE_SCHEDULE',   409, 'Offer is not available at this day or time'),
   ('NOT_IN_GROUP',       409, 'Offer is limited to other customer groups'),
   ('OUTSIDE_BIRTHDAY_WINDOW', 409, 'Offer is only available around your birthday'),

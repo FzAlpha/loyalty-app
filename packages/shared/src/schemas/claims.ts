@@ -53,3 +53,16 @@ export const MyRedemption = z.object({
   redeemed_at: DateTime, bill_amount: Num.nullable(),
 });
 export const ListMyRedemptionsOutput = z.array(MyRedemption);
+
+// api.list_my_redemptions_today (70_redemptions, F2): the executive's own redemptions at one business since
+// local midnight (business time zone), newest first. Page with before = last row's redeemed_at; the cap is
+// staff.today.page_max (server).
+export const ListMyRedemptionsTodayInput = z.object({
+  businessId: Uuid, before: DateTime.optional(), limit: z.number().int().positive().optional(),
+});
+export const TodayRedemption = z.object({
+  id: Uuid, redeemed_at: DateTime, offer_id: Uuid, offer_title: z.string().nullable(),
+  customer_name: z.string().nullable(), phone_masked: z.string().nullable(),
+  bill_number: z.string().nullable(), bill_amount: Num.nullable(),
+});
+export const ListMyRedemptionsTodayOutput = z.array(TodayRedemption);

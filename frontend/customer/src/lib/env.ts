@@ -1,5 +1,5 @@
 // Public build-time config (EXPO_PUBLIC_* only; inlined by Expo at bundle time).
-// Never read the service-role key here.
+// Never read a secret or admin key here.
 function required(name: string, value: string | undefined): string {
   if (!value) throw new Error(`Missing ${name}. Copy .env.example to .env.local and fill it in.`);
   return value;

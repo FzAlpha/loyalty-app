@@ -148,3 +148,46 @@ begin
     limit least(coalesce(p_limit, v_max), v_max);
 end;
 $$;
+
+-- ---------------------------------------------------------------- staff "Today" (F2, plan §6)
+-- Redemptions the caller confirmed at this business since local midnight (business time zone),
+-- newest first. Next page: pass the last row's redeemed_at as p_before.
+create or replace function api.list_my_redemptions_today(
+  p_business_id uuid,
+  p_before timestamptz default null,
+  p_limit integer default null)
+returns table (id uuid, redeemed_at timestamptz, offer_id uuid, offer_title text, customer_name text,
+               phone_masked text, bill_number text, bill_amount numeric)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := private.require_auth();
+  v_max integer := (private.get_setting('staff.today.page_max', p_business_id))::integer;
+  v_tz text;
+  v_from timestamptz;
+begin
+  if p_business_id is null then
+    perform private.raise_error('VALIDATION_FAILED', 'business_id');
+  end if;
+  if not private.can('claim.redeem', p_business_id) then
+    perform private.raise_error('FORBIDDEN', 'claim.redeem');
+  end if;
+  if p_limit is not null and p_limit < 1 then
+    perform private.raise_error('VALIDATION_FAILED', 'limit');
+  end if;
+  v_tz := private.business_timezone(p_business_id);
+  v_from := date_trunc('day', now() at time zone v_tz) at time zone v_tz;
+  return query
+    select r.id, r.redeemed_at, r.offer_id, (select b.title from private.offer_brief(r.offer_id) b),
+           c.m ->> 'full_name', c.m ->> 'phone_masked', r.bill_number, r.bill_amount
+    from public.redemptions r
+    cross join lateral private.customer_masked(r.customer_id) as c(m)
+    where r.executive_id = v_uid and r.business_id = p_business_id and r.redeemed_at >= v_from
+      and (p_before is null or r.redeemed_at < p_before)
+    order by r.redeemed_at desc
+    limit least(coalesce(p_limit, v_max), v_max);
+end;
+$$;

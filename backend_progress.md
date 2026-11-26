@@ -21,6 +21,12 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [x] M0: spike project deleted
 
 ## Decisions
+- 2026-11-26: Owner can add, edit, deactivate/reactivate and delete (unused only) businesses in the admin app; BUSINESS_INACTIVE, BUSINESS_IN_USE codes
+- 2026-11-26: Staff are never customers; svc_staff_upsert revokes the customer role
+- 2026-11-26: F2 admin reads via new RPCs api.get_my_staff, api.list_my_redemptions_today (business time zone)
+- 2026-11-26: Admin app reuses customer black/gold theme + Delius, plainer and larger controls; theme moved to packages/ui
+- 2026-11-26: Owner mode = business picker + same flows; block/reissue and staff management in F3
+- 2026-11-26: Default (not user-confirmed): staff.today.page_max 100
 - 2026-11-25: React Bits effects recreated natively with Reanimated (not the web library)
 - 2026-11-25: Customer app uses legacy anon JWT key (supabase-js 2.45.4); session in AsyncStorage (not encrypted)
 - 2026-11-25: Card numbers keep GR prefix; TCG from the client video not used
@@ -183,7 +189,24 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
     - [ ] Verify on phone: camera scan of a real card QR, change password, deletion (staging)
     - [!] Change password — hosted secure_password_change / min length unverified (reauth may be required)
     - [ ] WhatsApp refer button (app link unknown); offer banner images (bucket)
-  - [ ] F2 admin app
+  - [~] F2 admin app
+    - [x] RPCs get_my_staff, list_my_redemptions_today (SQL + pgTAP 23_f2_admin, staging 24/24)
+    - [x] shared/api: MyStaffOutput, staff.me, claims.listMineToday
+    - [x] packages/ui: theme, Text, brand images shared by customer + admin
+    - [x] frontend/admin scaffold (Expo SDK 58, Expo Router, NativeWind); typecheck clean; Android export OK
+    - [x] Screens: sign-in, forced password change, home, business picker (owner), scan card, scan offer, today
+    - [x] Not-staff / disabled / session-ended screens (§12 #7)
+    - [x] Phone (Expo Go, staging): exec + owner sign-in, forced password change, owner picker, home, Today (user-reported)
+    - [ ] Verify on phone against staging: §12 #1, #4, #5, #7 through the UI
+    - [x] Staging test staff accounts: owner + executive (Demo Dining Lounge)
+    - [x] svc_staff_upsert revokes customer role; applied + checked on staging; 2 test accounts cleaned
+    - [ ] pgTAP 85_security (26 tests) run in CI
+    - [ ] Owner block/reissue + staff management (F3)
+    - [x] Business add/deactivate/delete: RPCs + staging migration + pgTAP 21 (23/23 on staging) + admin Businesses screen
+    - [ ] Businesses screen tested on phone
+    - [x] Slug accents (unaccent) + file cleanup on business delete; staging pgTAP 21 25/25
+    - [x] Security scan false positives (comments) fixed
+    - [!] CI: codegen drift + packages typecheck fail until contracts are regenerated — needs push + CI artifact
   - [ ] F3 owner dashboard
 
 ## Open questions (§16.2)

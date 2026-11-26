@@ -22,6 +22,28 @@ Project ref `feiiyzyqtvntipcflbdo` (ap-south-1, Free plan). URL `https://feiiyzy
 - Advisors: only expected notices (RLS-no-policy deny-all tables incl. card_passes; SECURITY DEFINER RPCs; list_businesses open to anon by design; unindexed partner_offers.created_by FK, same as offers).
 - No business rows or partner data loaded yet.
 
+## F2 backend applied 2026-11-26 (Claude, Supabase MCP)
+- Migration `f2_admin_staff_context_today`: api.get_my_staff, api.list_my_redemptions_today, grants, setting staff.today.page_max.
+- pgTAP `database/tests/23_f2_admin.test.sql`: 24/24 pass in a rolled-back transaction (results collected in a temp table; pgTAP 1.3.3 has no per-test results table).
+- Advisors: no new lint types; the two RPCs are listed with the other SECURITY DEFINER api.* RPCs (by design).
+
+## Staff test accounts (2026-11-26)
+- First owner (bootstrap, because `staff-admin` needs an existing owner):
+  1. User: Admin API `POST /auth/v1/admin/users` with phone, temp password, `phone_confirm: true`, `app_metadata.account_type = "staff"`. Run locally; the user types the password and the secret key.
+  2. Claude (SQL): `private.revoke_roles(uid, 'customer')` + `private.grant_role(uid, 'owner', null, null)` + `insert into public.staff (user_id, business_id, display_name) values (uid, null, name)`.
+- The new `sb_secret_` key goes only in the `apikey` header (it is not a JWT). Calls whose User-Agent looks like a browser (PowerShell's default starts with `Mozilla/5.0`) are refused with "Forbidden use of secret API key in browser". Send a plain User-Agent.
+- More staff: sign in as the owner and call `staff-admin` `create` (the app path).
+- Created: owner "chirag" (staff.manage OK); executive "chirag-exe-1" at Demo Dining Lounge via staff-admin.
+- Issue: both also got the `customer` role. Likely cause (inferred, not confirmed in Auth source): admin createUser inserts the row before app_metadata.account_type is set, so the signup trigger sees no "staff". SQL tests miss it (they insert app_metadata directly).
+- Fixed 2026-11-26: migration `staff_upsert_revokes_customer_role` (api.svc_staff_upsert revokes `customer`). Checked in a rolled-back transaction (customer 1 → 0, executive granted). Customer role revoked on both test accounts; they now hold only owner / executive.
+- Passwords are not recorded anywhere; both accounts must change password at first sign-in.
+
+## Business management applied 2026-11-26 (Claude, Supabase MCP)
+- Migration `business_create_delete_deactivate`: error codes BUSINESS_INACTIVE/BUSINESS_IN_USE, api.create_business, api.delete_business, api.list_managed_businesses, private.business_is_active/require_business_active, updated evaluate_offer, scan_card, approve_card, reject_card.
+- pgTAP `database/tests/21_businesses.test.sql`: 23/23 pass in a rolled-back transaction.
+- Demo data checked: 4 active businesses, 6 active offers, 1 partner, owner + executive.
+- Migration `business_slug_unaccent_delete_returns_assets`: unaccent extension, create_business slug without accents, delete_business returns the files folder. pgTAP 21: 25/25 in a rolled-back transaction; owner can still delete files under a deleted business folder (storage_can_write true).
+
 ## Dashboard checklist (user)
 Values mirror `backend/supabase/config.toml`. If a setting can't be found or can't be saved, **stop and report back**. Never enter fake Twilio (or any SMS) credentials on hosted.
 
@@ -49,7 +71,7 @@ Values mirror `backend/supabase/config.toml`. If a setting can't be found or can
 
 ## Known limitations / unverified
 - F1: only the changed modules were applied, not a full schema re-apply; not byte-diffed against the repo.
-- F1: backend/contracts not regenerated (needs CI codegen).
+- F1/F2: backend/contracts not regenerated (needs CI codegen; the MCP type generator covers only `public`, not `api`).
 - Function sources were transcribed into the deploy calls; only boot-tested, not byte-diffed against the repo. The CI deploy job (planned before production) removes this gap.
 - Phone sign-in on hosted with no SMS provider: not yet tested.
 - Send SMS hook with `private` schema in the dashboard: not yet tested.

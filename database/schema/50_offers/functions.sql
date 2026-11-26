@@ -52,6 +52,9 @@ begin
      or (v_o.ends_at is not null and p_at >= v_o.ends_at) then
     reason_code := 'OFFER_INACTIVE'; return;
   end if;
+  if not private.business_is_active(v_o.business_id) then
+    reason_code := 'BUSINESS_INACTIVE'; return;
+  end if;
 
   v_local := p_at at time zone private.business_timezone(v_o.business_id);
   if exists (select 1 from public.offer_schedules s where s.offer_id = v_o.id)

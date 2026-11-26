@@ -1,5 +1,5 @@
 // Every user-facing string (English only for Phase 1; one place so translation can be added later).
-// Rule: never say "phone verified". A store identity check does not prove phone ownership.
+// Rule: never claim the phone number was checked or proven. A store identity check does not prove phone ownership.
 export const strings = {
   brand: {
     group: "Chirag Group",

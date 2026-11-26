@@ -20,6 +20,7 @@ insert into public.app_settings (key, value, value_schema, description) values
   ('qr.kind.card_pass',               '"P"',              '{"type":"string","minLength":1,"maxLength":1}', 'QR kind marker for digital card passes'),
   ('qr.version.card_pass',            '1',                '{"type":"integer","minimum":1}', 'Card pass QR payload version'),
   ('customer.history.page_max',       '50',               '{"type":"integer","minimum":1}', 'Max rows per page of a customer''s redemption history'),
+  ('staff.today.page_max',            '100',              '{"type":"integer","minimum":1}', 'Max rows per page of an executive''s Today list'),
   ('auth.lockout.max_failures',       '5',                '{"type":"integer","minimum":1}', 'Failed sign-ins before lockout'),
   ('auth.lockout.window_seconds',     '900',              '{"type":"integer","minimum":1}', 'Window for counting failed sign-ins'),
   ('auth.lockout.lock_seconds',       '900',              '{"type":"integer","minimum":1}', 'Lockout duration'),

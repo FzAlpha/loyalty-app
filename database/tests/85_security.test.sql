@@ -2,13 +2,15 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(24);
+select plan(26);
 
 insert into public.businesses (id, slug, name) values ('b1000000-0000-0000-0000-000000000001', 'biz-one', 'Biz One');
 insert into auth.users (id, phone, raw_app_meta_data) values
   ('a0000000-0000-0000-0000-00000000000a', '910000000001', '{"account_type":"staff"}'),
   ('e0000000-0000-0000-0000-00000000000e', '910000000002', '{"account_type":"staff"}'),
-  ('c0000000-0000-0000-0000-00000000000c', '919876543210', '{}');
+  ('c0000000-0000-0000-0000-00000000000c', '919876543210', '{}'),
+  -- Like Auth Admin createUser: row inserted without account_type, so the trigger grants 'customer'.
+  ('f0000000-0000-0000-0000-00000000000f', '910000000003', '{}');
 select private.grant_role('a0000000-0000-0000-0000-00000000000a', 'owner', null, null);
 insert into public.staff (user_id, business_id, display_name) values ('a0000000-0000-0000-0000-00000000000a', null, 'Owner');
 insert into auth.sessions (id, user_id) values
@@ -37,6 +39,11 @@ select ok(private.user_can('e0000000-0000-0000-0000-00000000000e', 'customer.rec
 select lives_ok($$select api.svc_staff_set_active('a0000000-0000-0000-0000-00000000000a', 'e0000000-0000-0000-0000-00000000000e', false)$$, 'owner disables executive');
 select ok(not private.user_can('e0000000-0000-0000-0000-00000000000e', 'customer.recover', 'b1000000-0000-0000-0000-000000000001'), 'disabled executive loses permissions');
 select lives_ok($$select api.svc_staff_set_active('a0000000-0000-0000-0000-00000000000a', 'e0000000-0000-0000-0000-00000000000e', true)$$, 'owner re-enables executive');
+select lives_ok($$select api.svc_staff_upsert('a0000000-0000-0000-0000-00000000000a', 'f0000000-0000-0000-0000-00000000000f', 'executive', 'b1000000-0000-0000-0000-000000000001', 'Exec 2')$$,
+  'owner makes a signed-up user an executive');
+select ok(not exists (select 1 from public.user_roles ur join public.roles r on r.id = ur.role_id
+  where ur.user_id = 'f0000000-0000-0000-0000-00000000000f' and ur.is_active and r.key = 'customer'),
+  'staff upsert removes the customer role');
 
 -- rate limit
 select lives_ok($$select private.consume_rate_limit('test', 'k')$$, 'token 1');

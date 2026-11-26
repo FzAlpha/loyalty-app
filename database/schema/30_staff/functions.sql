@@ -64,6 +64,9 @@ begin
   -- One staff role at a time: reassigning replaces the previous grant.
   perform private.revoke_roles(p_user_id, 'executive');
   perform private.revoke_roles(p_user_id, 'owner');
+  -- Staff are never customers. The signup trigger may already have granted 'customer': Auth Admin
+  -- createUser inserts the row before app_metadata.account_type is visible to the trigger.
+  perform private.revoke_roles(p_user_id, 'customer');
   perform private.grant_role(p_user_id, p_role_key, p_business_id, p_actor_id);
 
   perform audit.write_as(p_actor_id, 'staff.upsert', 'staff', p_user_id, v_before,
@@ -134,5 +137,37 @@ declare
   v_uid uuid := private.require_auth();
 begin
   update public.staff set must_change_password = false where user_id = v_uid;
+end;
+$$;
+
+-- ---------------------------------------------------------------- admin app (F2, plan §6)
+-- Signed-in staff member's own context, for routing the admin app only. Role comes from the staff
+-- row's scope (business_id null = owner, set by staff_upsert); every RPC still checks permissions.
+create or replace function api.get_my_staff()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := private.require_auth();
+  v_s public.staff;
+begin
+  if not private.session_is_live() then
+    perform private.raise_error('FORBIDDEN', 'staff.view');
+  end if;
+  select * into v_s from public.staff where user_id = v_uid;
+  if not found then
+    perform private.raise_error('NOT_FOUND', 'staff');
+  end if;
+  return jsonb_build_object(
+    'user_id', v_s.user_id,
+    'display_name', v_s.display_name,
+    'role', case when v_s.business_id is null then 'owner' else 'executive' end,
+    'business_id', v_s.business_id,
+    'business_name', private.business_name(v_s.business_id),
+    'is_active', v_s.is_active,
+    'must_change_password', v_s.must_change_password);
 end;
 $$;

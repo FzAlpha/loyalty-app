@@ -24,7 +24,7 @@ Sources:
 | `frontend/dashboard` | Owner web dashboard | Next.js + TypeScript, Tailwind CSS, Recharts |
 | `packages/shared` | Zod schemas, constants, types (re-exports `backend/contracts`) | TypeScript + Zod |
 | `packages/api` | Typed client, one function per operation in BACKEND_PLAN.md §6 | TypeScript + `@supabase/supabase-js` |
-| `packages/ui` | Shared mobile UI parts where practical | React Native |
+| `packages/ui` | Shared mobile UI parts: theme (colours, fonts, gradients), `Text`, brand images (since F2) | React Native |
 
 Shared libraries (PDF §4):
 - Zustand: local UI state
@@ -49,7 +49,7 @@ Versions are pinned when each app is created. M0 verified Expo SDK 58. I will no
 |---|---|---|
 | F0 | Commit generated `backend/contracts` from CI. `packages/shared` schemas and `packages/api` client for every §6 operation, with unit tests | Typecheck + tests green in CI. Drift check catches contract changes |
 | F1 | Customer app: sign up / in / recover, home, link card by QR, offers, claim QR, history, profile, password change, account deletion | Flows work against staging. Customer part of §12 #1, #3, #9, #10 |
-| F2 | Admin app: executive home, scan card (approve/reject), scan offer QR (preview + confirm), today, owner mode | Flows work against staging. §12 #1, #4, #5, #7 through the UI |
+| F2 | Admin app: executive home, scan card (approve/reject), scan offer QR (preview + confirm), today, owner mode (business picker; add/edit/deactivate/delete businesses) | Flows work against staging. §12 #1, #4, #5, #7 through the UI. Status 2026-11-26: built, typechecks, Android bundle exports; not yet run on a phone against staging |
 | F3 | Owner dashboard: totals, offers (+ banner upload), customers, executives, businesses, reports + CSV, audit log | Owner flows work against staging |
 | F4 (= M10) | Low-end Android and slow/intermittent network tests, runbooks (backup/restore first), Play/APK release prep, cut-over | All PDF §12 criteria green |
 

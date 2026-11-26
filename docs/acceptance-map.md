@@ -9,7 +9,7 @@ Status key:
 - **Partial**: some part is not testable yet; the gap is stated.
 - **Not covered**: planned for a later milestone.
 
-No frontend exists yet. The backend tests call the same RPCs and Edge Functions the apps will use, but no criterion has been checked through a real app UI.
+The backend tests call the same RPCs and Edge Functions the apps use. The customer app (F1) and admin app (F2) now implement the UI for #1, #4, #5 and #7 (admin: scan card approve/reject, offer preview + confirm with an idempotency key, WRONG_BUSINESS/USED refusals, disabled/session-ended screens), but no criterion has yet been checked through an app on a phone against staging.
 
 | # | Criterion (spec §12) | Tests | Status |
 |---|---|---|---|

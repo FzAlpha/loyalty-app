@@ -308,6 +308,7 @@ declare
   v_pass_hash bytea;
 begin
   perform private.require_permission('card.view', p_business_id);
+  perform private.require_business_active(p_business_id);
   if cardinality(string_to_array(coalesce(p_qr_payload, ''), '.')) = 5 then
     -- Digital card pass from the customer app (F1).
     select * into v_pass_id, v_pass_hash from private.parse_card_pass_qr(p_qr_payload);
@@ -383,6 +384,7 @@ begin
   if p_business_id is null then
     perform private.raise_error('VALIDATION_FAILED', 'business_id required');
   end if;
+  perform private.require_business_active(p_business_id);
   if p_evidence is null or cardinality(p_evidence) = 0 then
     perform private.raise_error('VALIDATION_FAILED', 'evidence required');
   end if;
@@ -418,6 +420,7 @@ begin
   if p_business_id is null then
     perform private.raise_error('VALIDATION_FAILED', 'business_id required');
   end if;
+  perform private.require_business_active(p_business_id);
   if p_reason is null or char_length(btrim(p_reason)) not between 1 and 500 then
     perform private.raise_error('VALIDATION_FAILED', 'reason');
   end if;
