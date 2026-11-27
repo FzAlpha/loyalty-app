@@ -1,7 +1,7 @@
 // Offers by category, with the claim QR. A claim is redeemed only when the store confirms it online.
 import { useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { FlatList, Modal, Pressable, ScrollView, View } from "react-native";
 import { PageHeader } from "../../components/Brand";
 import { Text } from "../../components/Text";
 import { LinearGradient } from "expo-linear-gradient";
@@ -13,7 +13,7 @@ import { FadeContent } from "../../fx/FadeContent";
 import { StarBorder } from "../../fx/StarBorder";
 import { api } from "../../lib/api";
 import { errorMessage } from "../../lib/errors";
-import { apiErrorOf, useBusinesses, useCategories, useOffers } from "../../lib/queries";
+import { apiErrorOf, useBusinessNames, useCategories, useOffers } from "../../lib/queries";
 import { strings } from "../../strings";
 import { gradients } from "../../theme";
 
@@ -32,10 +32,11 @@ export default function Offers() {
 
   const categories = useCategories();
   const offers = useOffers();
-  const businesses = useBusinesses();
-  const list = (offers.data ?? []).filter((o) => !category || o.category_key === category);
+  const businessName = useBusinessNames();
+  const list = useMemo(() => (offers.data ?? []).filter((o) => !category || o.category_key === category),
+    [offers.data, category]);
   const chosen = offers.data?.find((o) => o.id === selected) ?? null;
-  const businessName = (id: string) => businesses.data?.find((b) => b.id === id)?.name ?? undefined;
+  const open = useCallback((id: string) => { setSelected(id); setClaimError(null); }, []);
 
   const getClaim = async () => {
     if (!chosen) return;
@@ -49,8 +50,8 @@ export default function Offers() {
 
   const chips = [{ key: null as string | null, name: strings.offers.all }, ...(categories.data ?? []).map((c) => ({ key: c.key, name: c.name }))];
 
-  return (
-    <Screen>
+  const header = (
+    <>
       <PageHeader title={strings.offers.title} subtitle={strings.offers.subtitle} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 12 }}>
         {chips.map((c) => {
@@ -64,17 +65,32 @@ export default function Offers() {
           );
         })}
       </ScrollView>
+    </>
+  );
 
-      {offers.isPending ? <Loading /> : offers.error ? (
-        <ErrorBox message={errorMessage(apiErrorOf(offers.error))} onRetry={() => offers.refetch()} />
-      ) : list.length === 0 ? <Muted>{strings.offers.none}</Muted> : (
-        list.map((o, i) => (
-          <FadeContent key={`${category}-${o.id}`} index={i}>
-            <OfferCard offer={o} businessName={businessName(o.business_id)}
-              onPress={() => { setSelected(o.id); setClaimError(null); }} />
+  return (
+    <Screen scroll={false}>
+      {/* Virtualized: only rows near the viewport are mounted, so long offer lists stay light on memory. */}
+      <FlatList
+        testID="offers-list"
+        data={offers.isPending || offers.error ? [] : list}
+        keyExtractor={(o) => `${category}-${o.id}`}
+        ListHeaderComponent={header}
+        ListEmptyComponent={offers.isPending ? <Loading /> : offers.error ? (
+          <ErrorBox message={errorMessage(apiErrorOf(offers.error))} onRetry={() => offers.refetch()} />
+        ) : <Muted>{strings.offers.none}</Muted>}
+        renderItem={({ item: o, index: i }) => (
+          <FadeContent index={i}>
+            <OfferCard offer={o} businessName={businessName(o.business_id)} onPress={() => open(o.id)} />
           </FadeContent>
-        ))
-      )}
+        )}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={7}
+        removeClippedSubviews
+        contentContainerStyle={{ paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
+      />
 
       {/* Offer detail + claim */}
       <Modal visible={!!chosen} transparent animationType="slide" onRequestClose={() => { setSelected(null); setClaim(null); }}>

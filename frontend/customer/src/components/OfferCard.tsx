@@ -2,6 +2,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import type { z } from "zod";
 import type { EligibleOffer } from "@rewards/shared";
+import { memo } from "react";
 import { Pressable, View } from "react-native";
 import { Text } from "./Text";
 import { strings } from "../strings";
@@ -10,7 +11,7 @@ import { fmtDate } from "./ui";
 
 type Offer = z.output<typeof EligibleOffer>;
 
-export function OfferCard({ offer, businessName, onPress }: { offer: Offer; businessName?: string; onPress?: () => void }) {
+export const OfferCard = memo(function OfferCard({ offer, businessName, onPress }: { offer: Offer; businessName?: string; onPress?: () => void }) {
   const validity = offer.ends_at ? strings.offers.validTill(fmtDate(offer.ends_at)) : strings.offers.noEnd;
   return (
     <Pressable
@@ -36,4 +37,4 @@ export function OfferCard({ offer, businessName, onPress }: { offer: Offer; busi
       </View>
     </Pressable>
   );
-}
+});

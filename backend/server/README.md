@@ -27,6 +27,9 @@ Tests: `pytest` (offline, fakes) · `python -m tests.live_staging` (live, stagin
   `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2 --proxy-headers --forwarded-allow-ips=<proxy ip>`.
 - Client IP comes from the first `X-Forwarded-For` entry (as the Edge Functions do); only expose the server
   behind a proxy that sets it. Invalid values are ignored.
+- Each RPC is one network round trip: identity `set_config(..., true)` and the call are pipelined into one
+  implicit transaction (committed together, rolled back together, settings reset after). Idle pooled
+  connections are health-checked only after `DB_CHECK_IDLE_SECONDS`.
 - Limits: `MAX_BODY_BYTES`, `DB_STATEMENT_TIMEOUT_MS`, `AUTH_HTTP_TIMEOUT`, `AUTH_HTTP_RETRIES` (connect errors only).
 - Auth (GoTrue) outage → `AUTH_UNAVAILABLE` 503, not 401, so apps do not sign users out during an outage.
 - `JOBS_RUNNER_SECRET` must equal the Vault secret `jobs_runner_secret`. Cron reaches this server only if the

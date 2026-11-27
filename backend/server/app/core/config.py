@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     # Seconds a request waits for a free pooled connection before failing.
     DB_POOL_TIMEOUT: float = Field(default=10, gt=0)
     # Per-transaction statement timeout; a stuck query cannot hold a connection forever.
+    DB_CHECK_IDLE_SECONDS: float = Field(default=30, ge=0)
     DB_STATEMENT_TIMEOUT_MS: int = Field(default=15000, ge=0)
     # Request bodies larger than this are refused before parsing.
     MAX_BODY_BYTES: int = Field(default=1_000_000, gt=0)

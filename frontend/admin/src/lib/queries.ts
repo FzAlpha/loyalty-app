@@ -31,8 +31,11 @@ export const keys = {
 export const useStaff = (enabled: boolean) =>
   useQuery({ queryKey: keys.staff, queryFn: () => unwrap(api.staff.me()), enabled, retry: false });
 
+// Client cache tuning (not business rules): the business list rarely changes, so refetch it less often.
+export const cacheTimes = { reference: 5 * 60_000 } as const;
+
 export const useBusinesses = () =>
-  useQuery({ queryKey: keys.businesses, queryFn: () => unwrap(api.business.list()) });
+  useQuery({ queryKey: keys.businesses, queryFn: () => unwrap(api.business.list()), staleTime: cacheTimes.reference });
 
 // Owner: every business, active or not.
 export const useManagedBusinesses = () =>
