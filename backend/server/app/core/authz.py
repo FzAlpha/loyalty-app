@@ -21,7 +21,11 @@ def caller(req: Request) -> Caller:
     try:
         user = auth_api.get_user(jwt)
         claims = auth_api.jwt_claims(jwt)
-    except auth_api.AuthApiError:
+    except auth_api.AuthApiError as e:
+        # Auth unreachable or failing is not "your session is bad": a 401 here would make apps
+        # sign the user out during an outage.
+        if e.status == 0 or e.status >= 500:
+            raise AppError("AUTH_UNAVAILABLE") from None
         raise AppError("UNAUTHENTICATED") from None
     uid = user.get("id") if isinstance(user, dict) else None
     if not uid or claims.get("sub") != uid or claims.get("role") != "authenticated":

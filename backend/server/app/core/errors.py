@@ -38,5 +38,10 @@ def from_pg(exc: Exception) -> AppError:
     diag = getattr(exc, "diag", None)
     if sqlstate and _PT.match(sqlstate) and diag is not None and diag.message_primary:
         return AppError(diag.message_primary, diag.message_detail)
-    log.error("unexpected database error: %s %s", sqlstate, exc)
+    if sqlstate == "57014":  # query_canceled: DB_STATEMENT_TIMEOUT_MS hit
+        log.error("database statement timeout")
+    elif sqlstate is None:  # no server response: pool timeout, connection lost, DNS, auth to pooler
+        log.error("database unavailable: %s", type(exc).__name__)
+    else:
+        log.error("unexpected database error: %s %s", sqlstate, exc)
     return AppError("INTERNAL_ERROR")

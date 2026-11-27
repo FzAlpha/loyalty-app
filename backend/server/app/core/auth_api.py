@@ -32,7 +32,10 @@ _client: httpx.Client | None = None
 def _http() -> httpx.Client:
     global _client
     if _client is None:
-        _client = httpx.Client(base_url=settings().auth_url, timeout=settings().AUTH_HTTP_TIMEOUT)
+        s = settings()
+        # HTTPTransport retries only on connect errors/timeouts, so a request is never sent twice.
+        _client = httpx.Client(base_url=s.auth_url, timeout=s.AUTH_HTTP_TIMEOUT,
+                               transport=httpx.HTTPTransport(retries=s.AUTH_HTTP_RETRIES))
     return _client
 
 
@@ -66,7 +69,13 @@ def _request(method: str, path: str, key: str, jwt: str | None = None, **kw: Any
         raise AuthApiError(0, None) from e
     if res.status_code >= 400:
         raise AuthApiError(res.status_code, _error_code(res))
-    return res.json() if res.content else None
+    if not res.content:
+        return None
+    try:
+        return res.json()
+    except ValueError as e:  # e.g. an HTML error page from a proxy in front of Auth
+        log.error("auth returned non-JSON: %s %s %s", method, path, res.status_code)
+        raise AuthApiError(0, None) from e
 
 
 def _service() -> str:

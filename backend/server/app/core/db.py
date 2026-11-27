@@ -32,11 +32,28 @@ def pool() -> "ConnectionPool":
 
         s = settings()
         # prepare_threshold=None: no prepared statements, so the Supavisor transaction pooler works.
+        # check: a dead pooled connection is replaced on checkout instead of failing the request.
+        # open(wait=False): the server starts even while the database is unreachable and the pool
+        # keeps reconnecting in the background.
         _pool = ConnectionPool(
             s.DATABASE_URL, min_size=s.DB_POOL_MIN, max_size=s.DB_POOL_MAX,
-            kwargs={"prepare_threshold": None}, open=True,
+            kwargs={"prepare_threshold": None, "connect_timeout": max(1, int(s.DB_POOL_TIMEOUT))},
+            check=ConnectionPool.check_connection, timeout=s.DB_POOL_TIMEOUT, open=False,
         )
+        _pool.open(wait=False)
     return _pool
+
+
+def ping() -> bool:
+    """Readiness: can we get a connection and run a trivial query?"""
+    import psycopg
+
+    try:
+        with pool().connection() as conn:
+            conn.execute("select 1")
+        return True
+    except psycopg.Error:
+        return False
 
 
 def close_pool() -> None:
@@ -67,8 +84,8 @@ def _tx(ctx: Ctx) -> "Iterator[psycopg.Connection]":
     with pool().connection() as conn:  # commits on clean exit, rolls back on error
         conn.execute(
             "select set_config('role', %s, true), set_config('request.jwt.claims', %s, true),"
-            " set_config('request.headers', %s, true)",
-            (ctx.role, json.dumps(ctx.claims), json.dumps(ctx.headers)),
+            " set_config('request.headers', %s, true), set_config('statement_timeout', %s, true)",
+            (ctx.role, json.dumps(ctx.claims), json.dumps(ctx.headers), str(settings().DB_STATEMENT_TIMEOUT_MS)),
         )
         yield conn
 
@@ -117,5 +134,10 @@ def rpc(ctx: Ctx, fn: str, args: list[Arg] | None = None, returns: Returns = "js
 
 def query_service(q: str) -> list[tuple[Any, ...]]:
     """Fixed read-only query as service_role (used for the error catalogue)."""
-    with _tx(as_service()) as conn:
-        return conn.execute(q).fetchall()
+    import psycopg
+
+    try:
+        with _tx(as_service()) as conn:
+            return conn.execute(q).fetchall()
+    except psycopg.Error as e:
+        raise from_pg(e) from e

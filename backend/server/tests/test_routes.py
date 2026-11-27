@@ -203,3 +203,51 @@ def test_jobs_process(client, fdb, fauth):
     r = fn(client, "jobs-runner", {"job": "process_deletions"}, {"x-jobs-secret": "x" * 40})
     assert r.status_code == 200, r.text
     assert r.json()["data"]["completed"] == 1 and fauth.calls[-1] == ("delete_user", (UID2, True))
+
+
+# --- robustness ------------------------------------------------------------------------------
+
+def _req(headers: dict[str, str], host: str = "testclient"):
+    from starlette.requests import Request
+    return Request({"type": "http", "headers": [(k.lower().encode(), v.encode()) for k, v in headers.items()],
+                    "client": (host, 1)})
+
+
+def test_client_ip_validated():
+    from app.core.http import client_ip
+    assert client_ip(_req({"x-forwarded-for": "203.0.113.7, 10.0.0.1"})) == "203.0.113.7"
+    assert client_ip(_req({"x-forwarded-for": "junk"}, host="198.51.100.2")) == "198.51.100.2"
+    assert client_ip(_req({"x-forwarded-for": "junk"})) is None
+
+
+def test_request_id(client):
+    r = client.get("/health/nope")
+    assert r.status_code == 404 and r.json()["error"]["code"] == "NOT_FOUND"
+    assert len(r.headers["x-request-id"]) == 32
+    r = fn(client, "auth-sign-in", {}, {"x-request-id": "abc-123"})
+    assert r.headers["x-request-id"] == "abc-123"
+    r = fn(client, "auth-sign-in", {}, {"x-request-id": "bad id\twith spaces"})
+    assert r.headers["x-request-id"] != "bad id\twith spaces"
+
+
+def test_body_too_large(client, monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings(), "MAX_BODY_BYTES", 50)
+    r = fn(client, "auth-sign-in", {"phone": "+919876543210", "password": "x" * 100})
+    assert r.status_code == 400 and r.json()["error"]["detail"] == "body_too_large"
+
+
+def test_auth_outage_is_not_unauthenticated(client, fauth):
+    fauth.fail["get_user"] = auth_api.AuthApiError(0, None)
+    r = fn(client, "account-deletion", {}, AUTH)
+    assert r.status_code == 503 and r.json()["error"]["code"] == "AUTH_UNAVAILABLE"
+    fauth.fail["get_user"] = auth_api.AuthApiError(502, None)
+    assert fn(client, "account-deletion", {}, AUTH).json()["error"]["code"] == "AUTH_UNAVAILABLE"
+
+
+def test_readiness(client, monkeypatch):
+    from app.core import db
+    monkeypatch.setattr(db, "ping", lambda: True)
+    assert client.get("/health/ready").status_code == 200
+    monkeypatch.setattr(db, "ping", lambda: False)
+    assert client.get("/health/ready").status_code == 503

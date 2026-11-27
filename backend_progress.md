@@ -240,6 +240,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [x] Port all 9 Edge Functions
 - [x] Offline unit tests (27 pass)
 - [x] Live test against staging: 59/59 (tests/live_staging.py, port of edge_functions.sh + partner-apply)
+- [x] Robustness: pool checks/timeouts, statement timeout, body limit, IP check, request id, /health/ready, JSON 404, AUTH_UNAVAILABLE on Auth outage (32 offline tests)
 - [ ] App server switcher (apps stay on Edge Functions for now)
 - [ ] Hosting (Hostinger) — user decision
 

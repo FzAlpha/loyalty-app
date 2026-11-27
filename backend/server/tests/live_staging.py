@@ -23,7 +23,7 @@ S = settings()
 FN = os.environ.get("SERVER_URL", "http://127.0.0.1:8787").rstrip("/") + "/functions/v1"
 API = str(S.SUPABASE_URL).rstrip("/")
 ANON, SVC = (getattr(k, "get_secret_value", lambda: k)() for k in (S.SUPABASE_ANON_KEY, S.SUPABASE_SERVICE_ROLE_KEY))
-JOBS = os.environ.get("JOBS_RUNNER_SECRET", "")
+JOBS = os.environ.get("JOBS_RUNNER_SECRET") or getattr(S.JOBS_RUNNER_SECRET, "get_secret_value", lambda: S.JOBS_RUNNER_SECRET or "")()
 http = httpx.Client(timeout=30)
 fails = 0
 
