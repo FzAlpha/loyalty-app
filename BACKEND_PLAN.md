@@ -128,6 +128,17 @@ _shared/
 
 Each function's `index.ts` stays a thin handler: **validate → authorize → call one RPC or service → map the result**. Business rules live in SQL, so the RPC path and the Edge Function path cannot drift apart.
 
+### 1.3 Python server (`backend/server/`, approved 27 Nov 2026)
+
+A FastAPI rewrite of the Edge Functions. It runs **next to** them: no Edge Function is deleted, and the user decides later whether to keep both or drop the Edge Functions.
+
+- **Same contract.** Routes live at `POST /functions/v1/<name>` with the same request bodies and the same `{ data }` / `{ error: { code, detail } }` responses, so a client only swaps the base URL. `jobs-runner` keeps its `x-jobs-secret` check.
+- **Same rules.** Business rules stay in SQL. The server validates the body (pydantic), authorises, calls the same `api.*` RPCs and maps the result. Error statuses come from `public.error_codes`; `PT<status>` SQLSTATEs map to catalogue codes.
+- **Database.** Direct Postgres (`DATABASE_URL`, psycopg 3 + pool, prepared statements off so the Supavisor transaction pooler works). Each RPC runs in its own transaction, as each PostgREST call did. Caller calls run with `role = authenticated` and `request.jwt.claims` = the caller's verified JWT claims; service calls run with `role = service_role`. `request.headers` carries `x-forwarded-for` (client IP) and `x-request-id`, so audit rows and `private.request_ip()` keep working.
+- **Auth.** Supabase Auth stays the password authority. The server verifies every caller JWT with `GET /auth/v1/user` before using its claims, and uses the Auth REST API for sign-in (`/token?grant_type=password`) and admin user changes. The service-role key and DB URL are server-only env vars.
+- **Apps.** A server switcher (use Python when it is reachable, else the Edge Functions) is planned. Until the user says otherwise the apps keep calling the Edge Functions only.
+- **Hosting.** Any host that runs Python 3.11+ (the user has Hostinger). Env vars: see `backend/server/.env.example`.
+
 ---
 
 ## 2. What runs where

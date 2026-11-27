@@ -21,6 +21,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [x] M0: spike project deleted
 
 ## Decisions
+- 2026-11-27: Python FastAPI server in backend/server rewrites the Edge Functions (direct Postgres, same api.* RPCs); Edge Functions kept; apps stay on Edge Functions until the user decides (plan §1.3)
 - 2026-11-27: Partner businesses replace info-only partner offers: self sign-up in staff app, owner approves in dashboard, full redeemable offers live immediately (plan §4 partners, decision 32)
 - 2026-11-27: Partners cannot republish an offer the owner paused (offers.owner_paused)
 - 2026-11-26: Owner can add, edit, deactivate/reactivate and delete (unused only) businesses in the admin app; BUSINESS_INACTIVE, BUSINESS_IN_USE codes
@@ -232,6 +233,16 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
     - [ ] End-to-end sign-up → approve → offer → redeem on a device (needs user)
     - [ ] contracts hand-patched; commit CI artifact if codegen:check fails
     - [ ] Old partner-images bucket still on staging (empty); delete?
+
+## Python server (backend/server, §1.3)
+- [x] Plan section + decision
+- [x] FastAPI skeleton: config, db, auth, errors, CORS
+- [x] Port all 9 Edge Functions
+- [x] Offline unit tests (27 pass)
+- [x] Live test against staging: 59/59 (tests/live_staging.py, port of edge_functions.sh + partner-apply)
+- [x] Robustness: pool checks/timeouts, statement timeout, body limit, IP check, request id, /health/ready, JSON 404, AUTH_UNAVAILABLE on Auth outage (32 offline tests)
+- [ ] App server switcher (apps stay on Edge Functions for now)
+- [ ] Hosting (Hostinger) — user decision
 
 ## Open questions (§16.2)
 - [ ] Sb-Forwarded-For retest with IP Address Forwarding on
