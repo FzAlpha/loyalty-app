@@ -54,8 +54,15 @@ begin
   if not exists (select 1 from public.profiles where id = p_user_id) then
     perform private.raise_error('NOT_FOUND', 'user');
   end if;
+  -- Partner businesses have only their applicant (55_partners); no executives in Phase 1.
+  if p_business_id is not null and private.business_kind(p_business_id) = 'partner' then
+    perform private.raise_error('VALIDATION_FAILED', 'partner businesses have no executives');
+  end if;
 
   select to_jsonb(s) into v_before from public.staff s where s.user_id = p_user_id for update;
+  if private.business_kind((v_before ->> 'business_id')::uuid) = 'partner' then
+    perform private.raise_error('CONFLICT', 'partner account cannot be reassigned');
+  end if;
   insert into public.staff (user_id, business_id, display_name)
   values (p_user_id, p_business_id, p_display_name)
   on conflict (user_id) do update
@@ -73,6 +80,42 @@ begin
     jsonb_build_object('role', p_role_key, 'business_id', p_business_id, 'display_name', p_display_name),
     p_business_id);
 end;
+$$;
+
+-- 55_partners sign-up: staff row for the applicant of a new partner business. They chose their own
+-- password, so no forced change. No role here: api.decide_partner grants 'partner' on approval.
+create or replace function private.create_partner_staff(p_user_id uuid, p_business_id uuid, p_display_name text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if private.is_staff(p_user_id) then
+    perform private.raise_error('CONFLICT', 'already staff');
+  end if;
+  begin
+    insert into public.staff (user_id, business_id, display_name, must_change_password)
+    values (p_user_id, p_business_id, btrim(p_display_name), false);
+  exception when check_violation or not_null_violation then
+    perform private.raise_error('VALIDATION_FAILED', 'display_name');
+  end;
+  -- Staff are never customers (see svc_staff_upsert).
+  perform private.revoke_roles(p_user_id, 'customer');
+end;
+$$;
+
+-- owner / partner / executive from the staff row's scope and the business kind.
+create or replace function private.staff_role_label(p_business_id uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case when p_business_id is null then 'owner'
+              when private.business_kind(p_business_id) = 'partner' then 'partner'
+              else 'executive' end;
 $$;
 
 -- Service-role only (staff-admin). Enable/disable; the Edge Function also bans the auth user
@@ -153,6 +196,7 @@ as $$
 declare
   v_uid uuid := private.require_auth();
   v_s public.staff;
+  v_role text;
 begin
   if not private.session_is_live() then
     perform private.raise_error('FORBIDDEN', 'staff.view');
@@ -161,14 +205,17 @@ begin
   if not found then
     perform private.raise_error('NOT_FOUND', 'staff');
   end if;
+  v_role := private.staff_role_label(v_s.business_id);
+  -- Partners also get their application status and the owner's note (55_partners).
   return jsonb_build_object(
     'user_id', v_s.user_id,
     'display_name', v_s.display_name,
-    'role', case when v_s.business_id is null then 'owner' else 'executive' end,
+    'role', v_role,
     'business_id', v_s.business_id,
     'business_name', private.business_name(v_s.business_id),
     'is_active', v_s.is_active,
-    'must_change_password', v_s.must_change_password);
+    'must_change_password', v_s.must_change_password)
+    || case when v_role = 'partner' then private.partner_brief(v_s.business_id) else '{}'::jsonb end;
 end;
 $$;
 
@@ -185,7 +232,7 @@ begin
   perform private.require_permission('staff.manage', null);
   return query
     select s.user_id, s.display_name,
-           case when s.business_id is null then 'owner' else 'executive' end,
+           private.staff_role_label(s.business_id),
            s.business_id, b.name, p.phone_e164, s.is_active, s.must_change_password, s.created_at
     from public.staff s
     join public.profiles p on p.id = s.user_id

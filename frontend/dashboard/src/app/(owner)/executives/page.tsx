@@ -1,6 +1,6 @@
 // Staff accounts through the staff-admin Edge Function (api.staff.*): create, reassign, enable/disable and
 // reset password. The owner types every temporary password; the person must change it at first sign-in.
-// The list comes from api.list_staff (owner only).
+// The list comes from api.list_staff (owner only). Partner accounts are managed on the Partners page.
 "use client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -36,7 +36,8 @@ export default function Executives() {
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const bizName = new Map((businesses.data ?? []).map((b) => [b.id, b.name]));
-  const activeBiz = (businesses.data ?? []).filter((b) => b.is_active);
+  const activeBiz = (businesses.data ?? []).filter((b) => b.is_active && b.kind === "group");
+  const members = (staff.data ?? []).filter((m): m is typeof m & { role: Role } => m.role !== "partner");
 
   const fail = (e: ApiError | null) => { recheck(e); setFormError(message(e)); };
   const open = (st: Managed) => { setFormError(null); setTempPassword(""); setManage(st); };
@@ -90,7 +91,7 @@ export default function Executives() {
       <Card title={s.list}>
         {staff.isPending ? <Loading /> : staff.isError ? (
           <ErrorBox message={errorMessage(apiErrorOf(staff.error))} onRetry={() => staff.refetch()} />
-        ) : staff.data.length === 0 ? <p className="text-sm text-muted">{strings.common.none}</p> : (
+        ) : members.length === 0 ? <p className="text-sm text-muted">{strings.common.none}</p> : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="text-xs uppercase text-muted">
@@ -101,7 +102,7 @@ export default function Executives() {
                 </tr>
               </thead>
               <tbody>
-                {staff.data.map((m) => (
+                {members.map((m) => (
                   <tr key={m.user_id} className="border-t border-line">
                     <td className="py-2 pr-4">{m.display_name}</td>
                     <td className="py-2 pr-4">{s.roles[m.role]}</td>

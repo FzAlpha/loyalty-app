@@ -14,3 +14,6 @@ revoke all on function api.delete_business(uuid) from public, anon;
 grant execute on function api.delete_business(uuid) to authenticated;
 revoke all on function api.list_managed_businesses() from public, anon;
 grant execute on function api.list_managed_businesses() to authenticated;
+revoke all on function private.business_kind(uuid) from public, anon, authenticated;
+revoke all on function private.set_business_active(uuid, boolean) from public, anon, authenticated;
+revoke all on function private.create_business_row(jsonb, text, boolean) from public, anon, authenticated;

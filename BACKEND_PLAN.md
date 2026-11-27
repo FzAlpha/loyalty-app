@@ -226,7 +226,7 @@ All primary keys are `uuid` (`gen_random_uuid()`). All tables get `created_at` a
   Partial unique index: one `pending|approved` assignment per customer and one per card.
 
 ### offers
-- `offers(id, business_id, title, description, banner_path, terms, status enum[draft,active,paused,archived], starts_at, ends_at, max_uses_per_customer null, total_usage_limit null, total_redeemed int default 0, min_purchase_amount null, max_discount_amount null, birthday_window_days null, …)`
+- `offers(id, business_id, title, description, banner_path, terms, status enum[draft,active,paused,archived], owner_paused bool default false, starts_at, ends_at, max_uses_per_customer null, total_usage_limit null, total_redeemed int default 0, min_purchase_amount null, max_discount_amount null, birthday_window_days null, …)`
 - `offer_schedules(offer_id, weekday smallint, start_time, end_time)`: no rows means any time.
 - `offer_eligible_groups(offer_id, group_id)`: no rows means all active members.
 - `customer_groups(id, key, name)`, `customer_group_members(group_id, customer_id)`
@@ -254,7 +254,18 @@ All primary keys are `uuid` (`gen_random_uuid()`). All tables get `created_at` a
 - `businesses`: add `category text null` (e.g. Furniture) and `website_url text null` (https only); values in `database/seed/data/businesses.json`.
 - `cards` module: `card_passes(id, card_id, customer_id, secret_hash bytea, expires_at, created_at)`. Rotating digital card QR; only the hash is stored.
 - `offers` module: `offer_categories(id, key unique, name, sort_order, is_active)` seeded from a data file; `offers.category_id null` FK.
-- New `partners` module: `partners(id, name, logo_path, website_url, is_active)` and `partner_offers(id, partner_id, title, description, banner_path, terms, discount_text, claim_url null, claim_code null, status enum[draft,active,paused,archived], starts_at, ends_at)`. Info-only: no claim QR, no redemption tracking.
+- ~~Info-only `partners` / `partner_offers`~~: replaced on 2026-11-27 by partner businesses (below).
+
+### partners (approved 2026-11-27, replaces the info-only partner offers)
+- A partner is a `businesses` row with `kind = 'partner'` (`kind` is `group` or `partner`, default `group`; owner-created businesses are `group`). Partner offers are ordinary `offers` rows, so the claim QR, eligibility engine, redemption and reports apply unchanged.
+- `partner_applications(business_id pk → businesses, applicant_id unique → profiles, status enum[pending,approved,rejected,revoked], message null, decided_by null, decided_at null, decision_note null)`.
+- Self sign-up from the staff app through the `partner-apply` Edge Function (phone + password, contact name, business name, optional category/address/website/message; no OTP). It creates the Auth user (`account_type = staff`), an inactive partner business, a staff row for the applicant (`must_change_password = false`) and a `pending` application. No role is granted yet, so every permission check fails.
+- Owner decides in the dashboard (`partner.manage`, owner scope). Approve: grant role `partner` for that business and activate it. Reject: stays inactive. Revoke (approved only): remove the role, deactivate the business and pause its active offers. Approve also works from `rejected` or `revoked` (reinstate).
+- Approved partners publish offers straight away (no per-offer review); the owner can still pause any offer or revoke the partner.
+- Owner pause lock (27 Nov): when the owner pauses an offer, `offers.owner_paused` is set and only the owner can make it active again (`api.set_offer_status` raises CONFLICT for anyone else; archiving is still allowed). Any status change by the owner sets or clears the flag. Revoke does not set it, so a reinstated partner can republish.
+- Role `partner` (scoped to its own business): `offer.manage`, `card.view`, `claim.preview`, `claim.redeem`. Partners cannot approve cards and have no executives of their own (staff-admin refuses executives for partner businesses).
+- Customers: `list_businesses` returns `kind`; group companies and partners are shown separately; partner offers come from `list_eligible_offers`.
+- The `partner-images` bucket and `storage.bucket.partner_images` setting are removed; partner logos and banners use the business buckets.
 
 ### phase 2 (schema reserved, not built)
 - `purchases`, cross-business offers (behind `offers.cross_business_enabled`).
@@ -276,7 +287,7 @@ perform private.require_permission('card.approve', p_business_id);
 
 Seeded permissions (examples): `card.view`, `card.approve`, `card.block`, `card.reissue`, `card.batch.create`, `claim.preview`, `claim.redeem`, `offer.manage`, `business.manage`, `staff.manage`, `customer.view`, `customer.manage`, `customer.recover` (issue in-store recovery code), `customer.recover_remote` (owner only; restricted remote fallback), `customer.identity_check` (record an in-store identity check), `customer.release_phone.request` (executive: request a phone-number release), `customer.release_phone.approve` (owner: approve or reject it), `report.view`, `audit.view`, `settings.manage`.
 
-Seeded roles: `customer`, `executive` (business-scoped), `owner` (all businesses). **No manager role in Phase 1 (decided).** It can be added later as data only.
+Seeded roles: `customer`, `executive` (business-scoped), `partner` (business-scoped, partner businesses only; 2026-11-27), `owner` (all businesses). **No manager role in Phase 1 (decided).** It can be added later as data only.
 
 **RLS patterns** (read side):
 - Customer: `profiles`, `cards` and `redemptions` where `customer_id = auth.uid()`. Offers are readable when `status='active'` and inside their dates.
@@ -313,9 +324,11 @@ Every RPC: `SECURITY DEFINER`, `SET search_path = ''`, validates input, calls `r
 | `api.scan_card` (extended) | RPC (staff) | Also accepts a card pass payload: valid hash, not expired, card still `pending`/`active` → same response as the physical card QR |
 | `api.list_businesses()` | RPC (read) | Active businesses: id, name, category, logo_path, brand_color, website_url |
 | `api.list_offer_categories()` | RPC (read) | Active categories ordered by `sort_order`; `list_eligible_offers` returns `category_key` |
-| `api.list_partner_offers()` / `api.upsert_partner(…)` / `api.upsert_partner_offer(…)` / `api.set_partner_offer_status(…)` | RPC | List: customers with an active membership see active, in-date offers. Manage: owner, new permission `partner.manage`, audited |
-| `api.list_offers(business_id?)` / `api.list_staff()` | RPC (owner, read) | Approved 2026-11-26 (F3). `offer.manage` / `staff.manage` held globally. Every offer row (any status, optional business filter); every staff account with role, business name, phone, active and must-change-password flags |
-| `api.get_storage_buckets()` | RPC | Any signed-in user. Returns `{business_assets, offer_banners, partner_images}` bucket names from settings (§10); approved 2026-11-26 |
+| `partner-apply` | Edge Fn (no JWT) | Approved 2026-11-27. Rate limit `ratelimit.partner_apply` per IP → password policy → Admin `createUser` (`account_type = staff`) → `api.svc_partner_register` (business `kind = partner`, inactive; staff row; `pending` application; audited). Deletes the Auth user if the DB step fails |
+| `api.list_partner_applications(status?)` / `api.decide_partner(business_id, approve, note?)` / `api.revoke_partner(business_id, note?)` | RPC (owner) | Approved 2026-11-27. `partner.manage` at owner scope; status rules in §4 partners; audited |
+| `api.get_my_staff()` (extended) | RPC | Role is `owner`, `partner` or `executive`; partners also get `partner_status` and `decision_note` |
+| `api.list_offers(business_id?)` / `api.list_staff()` | RPC (owner, read) | Approved 2026-11-26 (F3). `offer.manage` / `staff.manage` held globally (2026-11-27: `list_offers` with a business id needs `offer.manage` for that business only, so partners list their own offers). Every offer row (any status, optional business filter); every staff account with role, business name, phone, active and must-change-password flags |
+| `api.get_storage_buckets()` | RPC | Any signed-in user. Returns `{business_assets, offer_banners}` bucket names from settings (§10); approved 2026-11-26 (`partner_images` removed 2026-11-27) |
 | `api.create_claim_token(offer_id)` | RPC | Eligibility engine → revoke the previous open token → 32-byte random secret (`gen_random_bytes`) → store `sha256` → `expires_at = now() + get_setting('claims.ttl_seconds')` → return the QR payload **once** |
 | `api.preview_claim(qr_payload)` | RPC (staff) | Returns a safe preview plus flags: `EXPIRED`, `USED`, `WRONG_BUSINESS`, `NOT_ELIGIBLE`. Does not consume the token |
 | `api.redeem_claim(qr_payload, idempotency_key, bill_number?, bill_amount?)` | RPC (staff) | See §8: atomic, locked and idempotent |
@@ -452,7 +465,7 @@ Nightly database backups are **not** a pg_cron job: they run from `.github/workf
 
 ## 10. Storage and Realtime
 
-- Buckets: `business-assets` (logos), `offer-banners` and `partner-images` (partner logos and partner offer banners; approved 2026-11-26). Bucket names come from settings (`storage.bucket.*`); apps read them with `api.get_storage_buckets()` (authenticated) and build public URLs from the stored path. Public read; write only with `business.manage` or `offer.manage` for that business (storage RLS on `storage.objects` using a path prefix of `business_id/`), or for `partner-images` with `partner.manage` held globally (owner) and a path prefix of `partner_id/`. File size and MIME limits are set on the bucket.
+- Buckets: `business-assets` (logos) and `offer-banners` (`partner-images` removed 2026-11-27; partner businesses use these two). Bucket names come from settings (`storage.bucket.*`); apps read them with `api.get_storage_buckets()` (authenticated) and build public URLs from the stored path. Public read; write only with `business.manage` or `offer.manage` for that business (storage RLS on `storage.objects` using a path prefix of `business_id/`). File size and MIME limits are set on the bucket.
 - Realtime: publication contains `card_assignments`, `claim_tokens` and `redemptions`. Customers receive only their own rows through RLS; staff receive their business's rows (for the "Today" screen).
 
 ---
@@ -561,6 +574,7 @@ Each layer has one job, so nothing is defined twice:
 | 29 | Android testing | Expo Go on the user's phone (22 Nov) |
 | 30 | Frontend order | F0 contracts + `packages/api`, then customer, admin, dashboard; English only; NativeWind/Tailwind (22 Nov) |
 | 31 | Client design video (25 Nov) | No paid membership and no OTP in F1 (no-SMS stands). Added: digital card pass QR (TTL 300 s), group companies + websites, WhatsApp share (no tracking), info-only travel partner offers, offer categories |
+| 32 | Partner businesses (27 Nov) | Replace info-only partner offers. Partners self sign up in the staff app, owner approves/rejects/revokes in the dashboard, approved partners publish full redeemable offers immediately; owner can pause or revoke (§4 partners) |
 
 ### 16.2 Still open
 1. **Backup storage provider** (which client-owned cloud account/bucket) and **restore-test cadence** (proposed monthly).

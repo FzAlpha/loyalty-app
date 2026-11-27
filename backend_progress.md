@@ -21,6 +21,8 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [x] M0: spike project deleted
 
 ## Decisions
+- 2026-11-27: Partner businesses replace info-only partner offers: self sign-up in staff app, owner approves in dashboard, full redeemable offers live immediately (plan §4 partners, decision 32)
+- 2026-11-27: Partners cannot republish an offer the owner paused (offers.owner_paused)
 - 2026-11-26: Owner can add, edit, deactivate/reactivate and delete (unused only) businesses in the admin app; BUSINESS_INACTIVE, BUSINESS_IN_USE codes
 - 2026-11-26: Staff are never customers; svc_staff_upsert revokes the customer role
 - 2026-11-26: F2 admin reads via new RPCs api.get_my_staff, api.list_my_redemptions_today (business time zone)
@@ -216,6 +218,20 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
     - [x] Dashboard: real offer/staff lists; logo + banner upload tested on staging
     - [ ] contracts hand-edited; regenerate from CI artifact if codegen:check fails
     - [ ] Replaced banner/logo files are not removed from Storage
+
+  - [~] Partner businesses (plan §4 partners)
+    - [x] Plan written
+    - [x] DB: businesses.kind, partner role, 55_partners rewrite, pgTAP 25
+    - [x] Edge Function partner-apply (deployed to staging)
+    - [x] shared/api partners module + tests
+    - [x] Dashboard Partners page; groups/partners split in businesses, executives, offers
+    - [x] Staff app Partner section: apply, waiting screen, My offers
+    - [x] Customer app partner listing (old travel offers removed)
+    - [x] Staging migration + pgTAP (8 files pass)
+    - [x] Owner pause lock (owner_paused): DB, pgTAP 25 + 50 pass on staging, staff app + dashboard hints
+    - [ ] End-to-end sign-up → approve → offer → redeem on a device (needs user)
+    - [ ] contracts hand-patched; commit CI artifact if codegen:check fails
+    - [ ] Old partner-images bucket still on staging (empty); delete?
 
 ## Open questions (§16.2)
 - [ ] Sb-Forwarded-For retest with IP Address Forwarding on

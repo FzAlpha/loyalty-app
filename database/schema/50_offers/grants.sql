@@ -18,3 +18,4 @@ revoke all on function api.get_storage_buckets() from public, anon;
 grant execute on function api.get_storage_buckets() to authenticated;
 revoke all on function api.list_offers(uuid) from public, anon;
 grant execute on function api.list_offers(uuid) to authenticated;
+revoke all on function private.pause_business_offers(uuid) from public, anon, authenticated;

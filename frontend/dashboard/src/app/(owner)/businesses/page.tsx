@@ -1,4 +1,4 @@
-// Owner: manage group companies (same flows as frontend/admin businesses.tsx). Add (api.create_business),
+// Owner: manage group companies (kind "group"; partner businesses are on the Partners page) (same flows as frontend/admin businesses.tsx). Add (api.create_business),
 // edit and deactivate/reactivate (api.update_business), delete one that was never used
 // (api.delete_business; BUSINESS_IN_USE otherwise), and upload a logo (Storage, then logo_path via
 // api.update_business). The server checks business.manage on every call.
@@ -22,7 +22,8 @@ const opt = (label: string) => `${label} (${strings.common.optional})`;
 export default function Businesses() {
   const qc = useQueryClient();
   const recheck = useRecheckAccess();
-  const list = useManagedBusinesses();
+  const all = useManagedBusinesses();
+  const groups = (all.data ?? []).filter((b) => b.kind === "group");
   const buckets = useBuckets();
   const logoBucket = buckets.data?.business_assets;
   const [form, setForm] = useState<Form | null>(null);
@@ -107,13 +108,13 @@ export default function Businesses() {
       {notice && <Notice message={notice} />}
       {error && <ErrorBox message={error} />}
 
-      {list.isPending ? <Loading /> : list.isError ? (
-        <ErrorBox message={errorMessage(apiErrorOf(list.error))} onRetry={() => list.refetch()} />
-      ) : list.data.length === 0 ? (
+      {all.isPending ? <Loading /> : all.isError ? (
+        <ErrorBox message={errorMessage(apiErrorOf(all.error))} onRetry={() => all.refetch()} />
+      ) : groups.length === 0 ? (
         <p className="text-sm text-muted">{s.empty}</p>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
-          {list.data.map((b) => (
+          {groups.map((b) => (
             <div key={b.id} className="rounded-xl border border-line bg-panel p-4">
               <div className="flex items-start justify-between gap-3">
                 {b.logo_path && logoBucket && (

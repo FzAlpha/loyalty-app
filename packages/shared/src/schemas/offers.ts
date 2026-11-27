@@ -53,6 +53,8 @@ export const ListOfferCategoriesOutput = z.array(OfferCategory);
 export const OwnerOffer = z.object({
   id: Uuid, business_id: Uuid, title: z.string(), description: z.string().nullable(),
   banner_path: z.string().nullable(), terms: z.string().nullable(), status: OfferStatus,
+  // Paused by the owner: only the owner can republish it (api.set_offer_status).
+  owner_paused: z.boolean(),
   category_id: Uuid.nullable(), starts_at: DateTime, ends_at: DateTime.nullable(),
   max_uses_per_customer: z.number().int().nullable(), total_usage_limit: z.number().int().nullable(),
   total_redeemed: z.number().int(), min_purchase_amount: Num.nullable(), max_discount_amount: Num.nullable(),

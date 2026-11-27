@@ -59,6 +59,7 @@ Versions are pinned when each app is created. M0 verified Expo SDK 58. I will no
 - Order: F0, then customer, admin, dashboard.
 - English only; NativeWind on mobile, Tailwind on web.
 - 2026-11-25: customer app follows the client's design (image + video): black and gold "Chirag Group Privilege Membership" theme, splash, gold membership card with rotating card-pass QR, benefit tiles by offer category, group companies + websites, offers grid with banners, travel partner offers, WhatsApp share, tabs Home / Offers / Scan / My Account / More. Theme colours live in one theme file; brand logos are image assets from the client. Kept accessible (contrast, font scaling).
+- 2026-11-27: partner businesses replace the travel partner offers. Staff app: "Apply to become a partner" on sign-in, a waiting/refused screen, and My offers for approved partners (new offers publish at once). Dashboard: Partners page (approve, reject, revoke). Customer app: Partners screen lists partner businesses and their redeemable offers; group companies list shows kind = group only.
 - Not built from the video: ₹100 paid membership, OTP screen, notifications bell.
 
 ## 4.1 Background to the decisions

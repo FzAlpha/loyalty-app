@@ -11,7 +11,7 @@ export type RpcName = keyof ApiFns;
 // Edge Function names (backend/supabase/functions). jobs-runner is server-only and not exposed.
 export type FunctionName =
   | "auth-register" | "auth-sign-in" | "auth-recover" | "card-batches" | "reports-export" | "staff-admin"
-  | "account-deletion";
+  | "account-deletion" | "partner-apply";
 
 export type Ctx = {
   rpc<O extends z.ZodTypeAny, N extends RpcName>(name: N, args: ApiFns[N]["Args"], out: O): Promise<Result<z.output<O>>>;

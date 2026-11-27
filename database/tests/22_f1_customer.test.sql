@@ -1,11 +1,11 @@
 -- F1 customer-app backend: get_my_account, digital card pass (create + scan), redemption history,
--- list_businesses / business fields, offer categories, partners. Runs as postgres inside one
+-- list_businesses / business fields, offer categories (partners: 25_partners). Runs as postgres inside one
 -- rolled-back transaction. now() is fixed for the whole transaction, so expiry is tested by moving
 -- expires_at into the past.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(53);
+select plan(39);
 
 -- ---------------------------------------------------------------- fixtures
 insert into auth.users (id, phone, raw_user_meta_data, raw_app_meta_data) values
@@ -50,8 +50,8 @@ grant select on q to authenticated;
 -- ---------------------------------------------------------------- structure + grants
 select is((select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace
            where n.nspname = 'public' and c.relrowsecurity
-             and c.relname in ('card_passes', 'offer_categories', 'partners', 'partner_offers')),
-          4, 'RLS on all F1 tables');
+             and c.relname in ('card_passes', 'offer_categories')),
+          2, 'RLS on all F1 tables');
 select ok(not has_table_privilege('authenticated', 'public.card_passes', 'select,insert,update,delete'),
           'clients have no access to card_passes');
 select ok(not has_function_privilege('anon', 'api.create_card_pass()', 'execute'), 'anon cannot create card passes');
@@ -147,48 +147,6 @@ select ok((select array_agg(key order by sort_order, name) from api.list_offer_c
             @> array['member_discounts', 'friends_family', 'exclusive_deals'], 'seeded categories listed');
 select is((select category_key from api.list_eligible_offers() where id = '0f000000-0000-0000-0000-000000002201'),
           'member_discounts', 'eligible offers carry category_key');
-
--- ---------------------------------------------------------------- partners
-set local request.jwt.claims = '{"sub":"e1000000-0000-0000-0000-0000000022e1","role":"authenticated","session_id":"5e100000-0000-0000-0000-0000000022e1"}';
-select throws_ok($$select api.upsert_partner('{"name":"X"}')$$, 'PT403', 'FORBIDDEN', 'executive cannot manage partners');
-
-set local request.jwt.claims = '{"sub":"a0000000-0000-0000-0000-0000000022aa","role":"authenticated","session_id":"5a000000-0000-0000-0000-0000000022aa"}';
-insert into q values ('pt', api.upsert_partner('{"name":"SkyTrips","website_url":"https://sky.example"}'));
-select is((select r ->> 'is_active' from q where name = 'pt'), 'true', 'owner creates partner');
-select throws_ok($$select api.upsert_partner('{"name":"Bad","website_url":"http://bad.example"}')$$,
-                 'PT400', 'VALIDATION_FAILED', 'partner website must be https');
-insert into q values ('po', api.upsert_partner_offer(jsonb_build_object('partner_id', (select r ->> 'partner_id' from q where name = 'pt'),
-  'title', 'Flights 10% off', 'discount_text', 'Up to 10% off', 'claim_url', 'https://sky.example/members')));
-select is((select r ->> 'status' from q where name = 'po'), 'draft', 'new partner offer starts as draft');
-
-set local request.jwt.claims = '{"sub":"c1000000-0000-0000-0000-0000000022c1","role":"authenticated","session_id":"5c100000-0000-0000-0000-0000000022c1"}';
-select is((select count(*)::int from api.list_partner_offers() where partner_name = 'SkyTrips'), 0, 'draft not listed');
-
-set local request.jwt.claims = '{"sub":"a0000000-0000-0000-0000-0000000022aa","role":"authenticated","session_id":"5a000000-0000-0000-0000-0000000022aa"}';
-select is(api.set_partner_offer_status((select (r ->> 'partner_offer_id')::uuid from q where name = 'po'), 'active') ->> 'status',
-          'active', 'owner activates partner offer');
-
-set local request.jwt.claims = '{"sub":"c1000000-0000-0000-0000-0000000022c1","role":"authenticated","session_id":"5c100000-0000-0000-0000-0000000022c1"}';
-select is((select discount_text from api.list_partner_offers() where partner_name = 'SkyTrips'), 'Up to 10% off',
-          'member sees active partner offer');
-set local role authenticated;
-select is((select count(*)::int from public.partner_offers), 0, 'no direct partner_offers reads for customers');
-select ok(exists(select 1 from public.partners where name = 'SkyTrips'), 'active partners readable');
-reset role;
-
-set local request.jwt.claims = '{"sub":"c2000000-0000-0000-0000-0000000022c2","role":"authenticated","session_id":"5c200000-0000-0000-0000-0000000022c2"}';
-select is((select count(*)::int from api.list_partner_offers()), 0, 'non-member gets an empty list');
-
-set local request.jwt.claims = '{"sub":"a0000000-0000-0000-0000-0000000022aa","role":"authenticated","session_id":"5a000000-0000-0000-0000-0000000022aa"}';
-select is(api.set_partner_offer_status((select (r ->> 'partner_offer_id')::uuid from q where name = 'po'), 'archived') ->> 'status',
-          'archived', 'owner archives partner offer');
-select throws_ok($$select api.set_partner_offer_status((select (r ->> 'partner_offer_id')::uuid from q where name = 'po'), 'active')$$,
-                 'PT409', 'CONFLICT', 'archived is final');
-select throws_ok($$select api.upsert_partner_offer(jsonb_build_object('id', (select r ->> 'partner_offer_id' from q where name = 'po'),
-                   'title', 'x'))$$, 'PT409', 'CONFLICT', 'archived partner offer cannot be edited');
-select is((select count(*)::int from audit.audit_logs where action in ('partner.created', 'partner_offer.created',
-           'partner_offer.status_changed') and entity_id in ((select (r ->> 'partner_id')::uuid from q where name = 'pt'),
-           (select (r ->> 'partner_offer_id')::uuid from q where name = 'po'))), 4, 'partner changes audited');
 
 select * from finish();
 rollback;

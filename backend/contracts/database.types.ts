@@ -31,6 +31,9 @@ export type Database = {
 "create_claim_token":
 { Args: { "p_offer_id": string }; Returns: Json
                            },
+"decide_partner":
+{ Args: { "p_approve": boolean,"p_business_id": string,"p_note"?: string }; Returns: Json
+                           },
 "decide_phone_release":
 { Args: { "p_approve": boolean,"p_note"?: string,"p_request_id": string }; Returns: Database["public"]['Enums']["phone_release_status"]
                            },
@@ -65,7 +68,7 @@ export type Database = {
                            },
 "list_businesses":
 { Args: Record<PropertyKey, never>; Returns: {
-              "brand_color": string,"category": string,"id": string,"logo_path": string,"name": string,"website_url": string
+              "brand_color": string,"category": string,"id": string,"kind": string,"logo_path": string,"name": string,"website_url": string
             }[]
                            },
 "list_eligible_offers":
@@ -104,9 +107,9 @@ export type Database = {
         isOneToOne: false
         isSetofReturn: true
       } },
-"list_partner_offers":
-{ Args: Record<PropertyKey, never>; Returns: {
-              "banner_path": string,"claim_code": string,"claim_url": string,"description": string,"discount_text": string,"ends_at": string,"id": string,"partner_id": string,"partner_logo_path": string,"partner_name": string,"partner_website_url": string,"starts_at": string,"terms": string,"title": string
+"list_partner_applications":
+{ Args: { "p_status"?: Database["public"]['Enums']["partner_status"] }; Returns: {
+              "address": string,"applicant_id": string,"applicant_phone": string,"business_id": string,"business_name": string,"business_phone": string,"category": string,"contact_name": string,"created_at": string,"decided_at": string,"decision_note": string,"is_active": boolean,"logo_path": string,"message": string,"status": Database["public"]['Enums']["partner_status"],"website_url": string
             }[]
                            },
 "list_staff":
@@ -161,14 +164,14 @@ export type Database = {
 "request_phone_release":
 { Args: { "p_business_id": string,"p_phone_e164": string,"p_reason": string }; Returns: string
                            },
+"revoke_partner":
+{ Args: { "p_business_id": string,"p_note"?: string }; Returns: Json
+                           },
 "scan_card":
 { Args: { "p_business_id": string,"p_qr_payload": string }; Returns: Json
                            },
 "set_offer_status":
 { Args: { "p_offer_id": string,"p_status": Database["public"]['Enums']["offer_status"] }; Returns: Json
-                           },
-"set_partner_offer_status":
-{ Args: { "p_offer_id": string,"p_status": Database["public"]['Enums']["partner_offer_status"] }; Returns: Json
                            },
 "set_setting":
 { Args: { "p_business_id"?: string,"p_key": string,"p_value": Json }; Returns: Json
@@ -199,6 +202,9 @@ export type Database = {
 "svc_login_result":
 { Args: { "p_ip": unknown,"p_phone_e164": string,"p_success": boolean }; Returns: string
                            },
+"svc_partner_register":
+{ Args: { "p_application": Json,"p_user_id": string }; Returns: Json
+                           },
 "svc_rate_limit":
 { Args: { "p_action": string,"p_key": string }; Returns: undefined
                            },
@@ -218,12 +224,6 @@ export type Database = {
 { Args: { "p_business_id": string,"p_patch": Json }; Returns: Json
                            },
 "upsert_offer":
-{ Args: { "p_offer": Json }; Returns: Json
-                           },
-"upsert_partner":
-{ Args: { "p_partner": Json }; Returns: Json
-                           },
-"upsert_partner_offer":
 { Args: { "p_offer": Json }; Returns: Json
                            }
           }
@@ -257,14 +257,14 @@ isOneToOne: false
                   ]
                 },"businesses": {
                   Row: {
-                    "address": string | null,"brand_color": string | null,"category": string | null,"created_at": string,"id": string,"is_active": boolean,"logo_path": string | null,"name": string,"opening_hours": Json | null,"phone": string | null,"slug": string,"timezone": string | null,"updated_at": string,"website_url": string | null
+                    "address": string | null,"brand_color": string | null,"category": string | null,"created_at": string,"id": string,"is_active": boolean,"kind": string,"logo_path": string | null,"name": string,"opening_hours": Json | null,"phone": string | null,"slug": string,"timezone": string | null,"updated_at": string,"website_url": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "address"?: string | null,"brand_color"?: string | null,"category"?: string | null,"created_at"?: string,"id"?: string,"is_active"?: boolean,"logo_path"?: string | null,"name": string,"opening_hours"?: Json | null,"phone"?: string | null,"slug": string,"timezone"?: string | null,"updated_at"?: string,"website_url"?: string | null
+                    "address"?: string | null,"brand_color"?: string | null,"category"?: string | null,"created_at"?: string,"id"?: string,"is_active"?: boolean,"kind"?: string,"logo_path"?: string | null,"name": string,"opening_hours"?: Json | null,"phone"?: string | null,"slug": string,"timezone"?: string | null,"updated_at"?: string,"website_url"?: string | null
                   }
                   Update: {
-                    "address"?: string | null,"brand_color"?: string | null,"category"?: string | null,"created_at"?: string,"id"?: string,"is_active"?: boolean,"logo_path"?: string | null,"name"?: string,"opening_hours"?: Json | null,"phone"?: string | null,"slug"?: string,"timezone"?: string | null,"updated_at"?: string,"website_url"?: string | null
+                    "address"?: string | null,"brand_color"?: string | null,"category"?: string | null,"created_at"?: string,"id"?: string,"is_active"?: boolean,"kind"?: string,"logo_path"?: string | null,"name"?: string,"opening_hours"?: Json | null,"phone"?: string | null,"slug"?: string,"timezone"?: string | null,"updated_at"?: string,"website_url"?: string | null
                   }
                   Relationships: [
                     
@@ -617,14 +617,14 @@ isOneToOne: false
                   ]
                 },"offers": {
                   Row: {
-                    "banner_path": string | null,"birthday_window_days": number | null,"business_id": string,"category_id": string | null,"created_at": string,"created_by": string | null,"description": string | null,"ends_at": string | null,"id": string,"max_discount_amount": number | null,"max_uses_per_customer": number | null,"min_purchase_amount": number | null,"starts_at": string,"status": Database["public"]['Enums']["offer_status"],"terms": string | null,"title": string,"total_redeemed": number,"total_usage_limit": number | null,"updated_at": string
+                    "banner_path": string | null,"birthday_window_days": number | null,"business_id": string,"category_id": string | null,"created_at": string,"created_by": string | null,"description": string | null,"ends_at": string | null,"id": string,"max_discount_amount": number | null,"max_uses_per_customer": number | null,"min_purchase_amount": number | null,"owner_paused": boolean,"starts_at": string,"status": Database["public"]['Enums']["offer_status"],"terms": string | null,"title": string,"total_redeemed": number,"total_usage_limit": number | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "banner_path"?: string | null,"birthday_window_days"?: number | null,"business_id": string,"category_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"ends_at"?: string | null,"id"?: string,"max_discount_amount"?: number | null,"max_uses_per_customer"?: number | null,"min_purchase_amount"?: number | null,"starts_at"?: string,"status"?: Database["public"]['Enums']["offer_status"],"terms"?: string | null,"title": string,"total_redeemed"?: number,"total_usage_limit"?: number | null,"updated_at"?: string
+                    "banner_path"?: string | null,"birthday_window_days"?: number | null,"business_id": string,"category_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"ends_at"?: string | null,"id"?: string,"max_discount_amount"?: number | null,"max_uses_per_customer"?: number | null,"min_purchase_amount"?: number | null,"owner_paused"?: boolean,"starts_at"?: string,"status"?: Database["public"]['Enums']["offer_status"],"terms"?: string | null,"title": string,"total_redeemed"?: number,"total_usage_limit"?: number | null,"updated_at"?: string
                   }
                   Update: {
-                    "banner_path"?: string | null,"birthday_window_days"?: number | null,"business_id"?: string,"category_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"ends_at"?: string | null,"id"?: string,"max_discount_amount"?: number | null,"max_uses_per_customer"?: number | null,"min_purchase_amount"?: number | null,"starts_at"?: string,"status"?: Database["public"]['Enums']["offer_status"],"terms"?: string | null,"title"?: string,"total_redeemed"?: number,"total_usage_limit"?: number | null,"updated_at"?: string
+                    "banner_path"?: string | null,"birthday_window_days"?: number | null,"business_id"?: string,"category_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"ends_at"?: string | null,"id"?: string,"max_discount_amount"?: number | null,"max_uses_per_customer"?: number | null,"min_purchase_amount"?: number | null,"owner_paused"?: boolean,"starts_at"?: string,"status"?: Database["public"]['Enums']["offer_status"],"terms"?: string | null,"title"?: string,"total_redeemed"?: number,"total_usage_limit"?: number | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -641,39 +641,37 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"partner_offers": {
+                },"partner_applications": {
                   Row: {
-                    "banner_path": string | null,"claim_code": string | null,"claim_url": string | null,"created_at": string,"created_by": string | null,"description": string | null,"discount_text": string | null,"ends_at": string | null,"id": string,"partner_id": string,"starts_at": string,"status": Database["public"]['Enums']["partner_offer_status"],"terms": string | null,"title": string,"updated_at": string
+                    "applicant_id": string,"business_id": string,"created_at": string,"decided_at": string | null,"decided_by": string | null,"decision_note": string | null,"message": string | null,"status": Database["public"]['Enums']["partner_status"],"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "banner_path"?: string | null,"claim_code"?: string | null,"claim_url"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"discount_text"?: string | null,"ends_at"?: string | null,"id"?: string,"partner_id": string,"starts_at"?: string,"status"?: Database["public"]['Enums']["partner_offer_status"],"terms"?: string | null,"title": string,"updated_at"?: string
+                    "applicant_id": string,"business_id": string,"created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"decision_note"?: string | null,"message"?: string | null,"status"?: Database["public"]['Enums']["partner_status"],"updated_at"?: string
                   }
                   Update: {
-                    "banner_path"?: string | null,"claim_code"?: string | null,"claim_url"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"discount_text"?: string | null,"ends_at"?: string | null,"id"?: string,"partner_id"?: string,"starts_at"?: string,"status"?: Database["public"]['Enums']["partner_offer_status"],"terms"?: string | null,"title"?: string,"updated_at"?: string
+                    "applicant_id"?: string,"business_id"?: string,"created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"decision_note"?: string | null,"message"?: string | null,"status"?: Database["public"]['Enums']["partner_status"],"updated_at"?: string
                   }
                   Relationships: [
                     {
-      foreignKeyName: "partner_offers_partner_id_fkey"
-      columns: ["partner_id"]
+      foreignKeyName: "partner_applications_applicant_id_fkey"
+      columns: ["applicant_id"]
+isOneToOne: true
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "partner_applications_business_id_fkey"
+      columns: ["business_id"]
+isOneToOne: true
+      referencedRelation: "businesses"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "partner_applications_decided_by_fkey"
+      columns: ["decided_by"]
 isOneToOne: false
-      referencedRelation: "partners"
+      referencedRelation: "profiles"
       referencedColumns: ["id"]
     }
-                  ]
-                },"partners": {
-                  Row: {
-                    "created_at": string,"id": string,"is_active": boolean,"logo_path": string | null,"name": string,"updated_at": string,"website_url": string | null
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "created_at"?: string,"id"?: string,"is_active"?: boolean,"logo_path"?: string | null,"name": string,"updated_at"?: string,"website_url"?: string | null
-                  }
-                  Update: {
-                    "created_at"?: string,"id"?: string,"is_active"?: boolean,"logo_path"?: string | null,"name"?: string,"updated_at"?: string,"website_url"?: string | null
-                  }
-                  Relationships: [
-                    
                   ]
                 },"permissions": {
                   Row: {
@@ -904,7 +902,7 @@ isOneToOne: false
             [_ in never]: never
           }
           Enums: {
-            "account_status": "active"|"disabled"|"deletion_pending"|"deleted","card_assignment_status": "pending"|"approved"|"rejected"|"revoked","card_status": "unassigned"|"pending"|"active"|"blocked"|"retired","claim_status": "open"|"used"|"expired"|"revoked","deletion_reason": "customer_request"|"unchecked_account","deletion_status": "requested"|"processing"|"completed"|"failed","identity_check_result": "passed"|"failed","identity_evidence": "registration_details"|"proof_of_purchase"|"account_info","membership_status": "none"|"pending"|"active"|"rejected"|"blocked","offer_status": "draft"|"active"|"paused"|"archived","partner_offer_status": "draft"|"active"|"paused"|"archived","phone_release_status": "pending"|"approved"|"rejected"|"cancelled","recovery_channel": "in_store"|"owner_remote"
+            "account_status": "active"|"disabled"|"deletion_pending"|"deleted","card_assignment_status": "pending"|"approved"|"rejected"|"revoked","card_status": "unassigned"|"pending"|"active"|"blocked"|"retired","claim_status": "open"|"used"|"expired"|"revoked","deletion_reason": "customer_request"|"unchecked_account","deletion_status": "requested"|"processing"|"completed"|"failed","identity_check_result": "passed"|"failed","identity_evidence": "registration_details"|"proof_of_purchase"|"account_info","membership_status": "none"|"pending"|"active"|"rejected"|"blocked","offer_status": "draft"|"active"|"paused"|"archived","partner_status": "pending"|"approved"|"rejected"|"revoked","phone_release_status": "pending"|"approved"|"rejected"|"cancelled","recovery_channel": "in_store"|"owner_remote"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1024,7 +1022,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "account_status": ["active", "disabled", "deletion_pending", "deleted"],"card_assignment_status": ["pending", "approved", "rejected", "revoked"],"card_status": ["unassigned", "pending", "active", "blocked", "retired"],"claim_status": ["open", "used", "expired", "revoked"],"deletion_reason": ["customer_request", "unchecked_account"],"deletion_status": ["requested", "processing", "completed", "failed"],"identity_check_result": ["passed", "failed"],"identity_evidence": ["registration_details", "proof_of_purchase", "account_info"],"membership_status": ["none", "pending", "active", "rejected", "blocked"],"offer_status": ["draft", "active", "paused", "archived"],"partner_offer_status": ["draft", "active", "paused", "archived"],"phone_release_status": ["pending", "approved", "rejected", "cancelled"],"recovery_channel": ["in_store", "owner_remote"]
+            "account_status": ["active", "disabled", "deletion_pending", "deleted"],"card_assignment_status": ["pending", "approved", "rejected", "revoked"],"card_status": ["unassigned", "pending", "active", "blocked", "retired"],"claim_status": ["open", "used", "expired", "revoked"],"deletion_reason": ["customer_request", "unchecked_account"],"deletion_status": ["requested", "processing", "completed", "failed"],"identity_check_result": ["passed", "failed"],"identity_evidence": ["registration_details", "proof_of_purchase", "account_info"],"membership_status": ["none", "pending", "active", "rejected", "blocked"],"offer_status": ["draft", "active", "paused", "archived"],"partner_status": ["pending", "approved", "rejected", "revoked"],"phone_release_status": ["pending", "approved", "rejected", "cancelled"],"recovery_channel": ["in_store", "owner_remote"]
           }
         }
 } as const

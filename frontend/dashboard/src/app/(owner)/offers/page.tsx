@@ -67,6 +67,7 @@ export default function Offers() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const bizName = new Map((businesses.data ?? []).map((b) => [b.id, b.name]));
+  const partnerIds = new Set((businesses.data ?? []).filter((b) => b.kind === "partner").map((b) => b.id));
   const catName = new Map((categories.data ?? []).map((c) => [c.id, c.name]));
 
   const fail = (e: ApiError | null, inForm: boolean) => { recheck(e); (inForm ? setFormError : setError)(errorMessage(e)); };
@@ -147,9 +148,13 @@ export default function Offers() {
                 <div className="min-w-0">
                   <div className="truncate text-lg font-semibold">{o.title}</div>
                   <div className="text-sm text-muted">
+                    {partnerIds.has(o.business_id) && <span className="mr-1 text-gold">{s.partnerTag} ·</span>}
                     {bizName.get(o.business_id) ?? "—"}{o.category_id ? ` · ${catName.get(o.category_id) ?? ""}` : ""}
                   </div>
                   <div className="text-xs text-muted">{fmtDateTime(o.starts_at)} → {fmtDateTime(o.ends_at)}</div>
+                  {o.owner_paused && o.status === "paused" && partnerIds.has(o.business_id) && (
+                    <div className="text-xs text-gold">{s.ownerPaused}</div>
+                  )}
                 </div>
                 <Badge tone={o.status === "active" ? "ok" : o.status === "draft" ? "muted" : "warn"}>
                   {s.statuses[o.status] ?? o.status}
@@ -177,7 +182,8 @@ export default function Offers() {
             <Select label={s.business} value={form.business_id} disabled={!!form.id}
               onChange={(e) => set("business_id", e.target.value)}>
               <option value="">—</option>
-              {(businesses.data ?? []).filter((b) => b.is_active || b.id === form.business_id).map((b) => (
+              {/* New offers are for group companies; partners create their own in the staff app. */}
+              {(businesses.data ?? []).filter((b) => b.id === form.business_id || (b.is_active && b.kind === "group")).map((b) => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </Select>

@@ -22,6 +22,7 @@ create table public.offers (
   banner_path text,
   terms text check (char_length(terms) <= 4000),
   status public.offer_status not null default 'draft',
+  owner_paused boolean not null default false,  -- paused by the owner: only the owner can republish (plan §4 partners)
   category_id uuid references public.offer_categories (id),   -- null = uncategorised
   starts_at timestamptz not null default now(),
   ends_at timestamptz,                       -- null = open-ended

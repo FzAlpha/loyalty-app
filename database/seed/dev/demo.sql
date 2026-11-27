@@ -2,7 +2,7 @@
 -- Everything is named "Demo ..." so it is easy to spot and remove (see the cleanup block at the end).
 -- Part 1 is safe to run more than once. Part 2 needs a customer who registered through the app.
 
--- ---------------------------------------------------------------- part 1: businesses, offers, partners
+-- ---------------------------------------------------------------- part 1: businesses, offers, partner
 insert into public.businesses (slug, name, brand_color, category, address) values
   ('demo-furniture',   'Demo Furniture House', '#8B5A2B', 'Furniture',   'Demo Street 1'),
   ('demo-electronics', 'Demo Electronics',     '#1F6FEB', 'Electronics', 'Demo Street 2'),
@@ -27,19 +27,24 @@ select b.id, c.id, v.title, v.description, v.terms, 'active', now() - interval '
 from v join b on b.slug = v.slug join c on c.key = v.cat
 where not exists (select 1 from public.offers o where o.business_id = b.id and o.title = v.title);
 
-insert into public.partners (name, website_url)
-select 'Demo Travels', 'https://example.com'
-where not exists (select 1 from public.partners where name = 'Demo Travels');
+-- Demo partner business (plan §4 partners). Real partners sign up in the staff app and get a
+-- partner_applications row; this one has no applicant account, so it shows only on the customer side.
+insert into public.businesses (slug, name, brand_color, category, address, website_url, kind) values
+  ('demo-travels', 'Demo Travels', '#00838F', 'Travel', 'Demo Street 5', 'https://example.com', 'partner')
+on conflict (slug) do nothing;
 
-insert into public.partner_offers (partner_id, title, description, discount_text, claim_code, claim_url, terms,
-                                   status, starts_at, ends_at)
-select p.id, v.title, v.description, v.discount, v.code, 'https://example.com', 'Demo offer.', 'active',
-       now() - interval '1 day', now() + interval '90 days'
-from public.partners p,
-     (values ('Demo: Hotel stays', 'Member rates on partner hotels.', 'Up to 20% off', 'DEMO20'),
-             ('Demo: Flights',     'Discount on domestic flights.',   '₹500 off',      'DEMO500')) v (title, description, discount, code)
-where p.name = 'Demo Travels'
-  and not exists (select 1 from public.partner_offers o where o.partner_id = p.id and o.title = v.title);
+with b as (select id from public.businesses where slug = 'demo-travels'),
+     c as (select id from public.offer_categories where key = 'exclusive_deals'),
+     v (title, description, min_amt, max_amt) as (values
+  ('Demo: 15% off hotel stays', 'Members save 15% on partner hotel bookings.', 3000, 2000),
+  ('Demo: ₹500 off flights',    'Flat ₹500 off domestic flights.',             4000, 500)
+)
+insert into public.offers (business_id, category_id, title, description, terms, status, starts_at, ends_at,
+                           min_purchase_amount, max_discount_amount, max_uses_per_customer)
+select b.id, c.id, v.title, v.description, 'Demo offer.', 'active', now() - interval '1 day', now() + interval '90 days',
+       v.min_amt, v.max_amt, 1
+from v, b, c
+where not exists (select 1 from public.offers o where o.business_id = b.id and o.title = v.title);
 
 -- ---------------------------------------------------------------- part 2: activate a demo customer
 -- Give a customer (who registered in the app) an active demo card, as if staff had approved it.
@@ -81,8 +86,6 @@ end;
 $$;
 
 -- ---------------------------------------------------------------- cleanup (run by hand to remove demo data)
--- delete from public.partner_offers where partner_id in (select id from public.partners where name = 'Demo Travels');
--- delete from public.partners where name = 'Demo Travels';
 -- delete from public.offers where business_id in (select id from public.businesses where slug like 'demo-%');
 -- delete from public.businesses where slug like 'demo-%';
 -- Demo cards: see card_batches where label = 'DEMO batch' (assignments, cards, batch; reset membership_status).
