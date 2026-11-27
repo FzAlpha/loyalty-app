@@ -3,3 +3,5 @@ packages:
   - backend
   - packages/*
   - tools/*
+allowBuilds:
+  '@parcel/watcher': false

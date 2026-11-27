@@ -1,6 +1,6 @@
 """Direct Postgres access (plan §1.3).
 
-Each RPC runs in its own transaction, as each PostgREST call did for the Edge Functions, so a rate
+Each RPC runs in its own transaction (one network round trip, see _run), as each PostgREST call did for the Edge Functions, so a rate
 limit or a spent recovery code stays committed even when a later step fails.
 
 Identity is set the way PostgREST sets it: `role`, `request.jwt.claims` and `request.headers` as
@@ -8,9 +8,10 @@ transaction-local settings. Caller calls run as `authenticated` with the caller'
 service calls run as `service_role`.
 """
 import json
-from contextlib import contextmanager
+import time
+import weakref
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Iterator, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from .config import settings
 from .errors import from_pg
@@ -32,16 +33,33 @@ def pool() -> "ConnectionPool":
 
         s = settings()
         # prepare_threshold=None: no prepared statements, so the Supavisor transaction pooler works.
-        # check: a dead pooled connection is replaced on checkout instead of failing the request.
+        # autocommit: transactions are the implicit ones of a pipeline (see _run), not BEGIN/COMMIT.
         # open(wait=False): the server starts even while the database is unreachable and the pool
         # keeps reconnecting in the background.
         _pool = ConnectionPool(
             s.DATABASE_URL, min_size=s.DB_POOL_MIN, max_size=s.DB_POOL_MAX,
-            kwargs={"prepare_threshold": None, "connect_timeout": max(1, int(s.DB_POOL_TIMEOUT))},
-            check=ConnectionPool.check_connection, timeout=s.DB_POOL_TIMEOUT, open=False,
+            kwargs={"prepare_threshold": None, "autocommit": True,
+                    "connect_timeout": max(1, int(s.DB_POOL_TIMEOUT))},
+            check=_check, reset=_mark_used, timeout=s.DB_POOL_TIMEOUT, open=False,
         )
         _pool.open(wait=False)
     return _pool
+
+
+# A health check costs a round trip, so only connections idle for a while are checked on checkout;
+# a busy connection is known to be alive. A dead one is still discarded by the pool when it fails.
+_last_used: "weakref.WeakKeyDictionary[Any, float]" = weakref.WeakKeyDictionary()
+
+
+def _mark_used(conn: "psycopg.Connection") -> None:
+    _last_used[conn] = time.monotonic()
+
+
+def _check(conn: "psycopg.Connection") -> None:
+    from psycopg_pool import ConnectionPool
+
+    if time.monotonic() - _last_used.get(conn, 0.0) > settings().DB_CHECK_IDLE_SECONDS:
+        ConnectionPool.check_connection(conn)
 
 
 def ping() -> bool:
@@ -79,15 +97,20 @@ def as_service(headers: dict[str, str] | None = None) -> Ctx:
     return Ctx("service_role", {"role": "service_role"}, headers or {})
 
 
-@contextmanager
-def _tx(ctx: Ctx) -> "Iterator[psycopg.Connection]":
-    with pool().connection() as conn:  # commits on clean exit, rolls back on error
-        conn.execute(
-            "select set_config('role', %s, true), set_config('request.jwt.claims', %s, true),"
-            " set_config('request.headers', %s, true), set_config('statement_timeout', %s, true)",
-            (ctx.role, json.dumps(ctx.claims), json.dumps(ctx.headers), str(settings().DB_STATEMENT_TIMEOUT_MS)),
-        )
-        yield conn
+_SET_IDENTITY = ("select set_config('role', %s, true), set_config('request.jwt.claims', %s, true),"
+                 " set_config('request.headers', %s, true), set_config('statement_timeout', %s, true)")
+
+
+def _run(ctx: Ctx, q: Any, values: Any = None, many: bool = False) -> Any:
+    """One round trip: identity + query sent as a pipeline with no sync point between them, so
+    Postgres runs both in one implicit transaction (committed at the sync, rolled back on error).
+    The settings are transaction-local, exactly as with BEGIN ... COMMIT."""
+    with pool().connection() as conn:
+        with conn.pipeline():
+            conn.execute(_SET_IDENTITY, (ctx.role, json.dumps(ctx.claims), json.dumps(ctx.headers),
+                                         str(settings().DB_STATEMENT_TIMEOUT_MS)))
+            cur = conn.execute(q, values)
+        return cur.fetchall() if many else cur.fetchone()
 
 
 Arg = tuple[str, Any, str]  # (parameter name, value, Postgres type)
@@ -125,8 +148,7 @@ def rpc(ctx: Ctx, fn: str, args: list[Arg] | None = None, returns: Returns = "js
 
     q, values = _call_sql(fn, args, returns)
     try:
-        with _tx(ctx) as conn:
-            row = conn.execute(q, values).fetchone()
+        row = _run(ctx, q, values)
     except psycopg.Error as e:
         raise from_pg(e) from e
     return None if returns == "void" or row is None else row[0]
@@ -137,7 +159,6 @@ def query_service(q: str) -> list[tuple[Any, ...]]:
     import psycopg
 
     try:
-        with _tx(as_service()) as conn:
-            return conn.execute(q).fetchall()
+        return _run(as_service(), q, many=True)
     except psycopg.Error as e:
         raise from_pg(e) from e

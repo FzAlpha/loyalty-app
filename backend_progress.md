@@ -241,8 +241,16 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [x] Offline unit tests (27 pass)
 - [x] Live test against staging: 59/59 (tests/live_staging.py, port of edge_functions.sh + partner-apply)
 - [x] Robustness: pool checks/timeouts, statement timeout, body limit, IP check, request id, /health/ready, JSON 404, AUTH_UNAVAILABLE on Auth outage (32 offline tests)
+- [x] One DB round trip per RPC (pipelined set_config + call); load test: DB calls ~15→~60 req/s, single RPC ~600→~120 ms, 0 errors
 - [ ] App server switcher (apps stay on Edge Functions for now)
 - [ ] Hosting (Hostinger) — user decision
+
+## App performance (frontend)
+- [x] Android release: R8 minify + resource shrinking (expo-build-properties, both apps)
+- [x] Low-end: shimmer paused off-screen / reduced motion, list animations capped, offers list virtualized, memoized cards, longer cache for reference lists
+- [x] Admin: camera off when scan screen not visible
+- [x] Jest tests (customer 7, admin 4), run in CI via pnpm -r test
+- [ ] Release build smoke test on a real low-end Android phone (no Android SDK here)
 
 ## Open questions (§16.2)
 - [ ] Sb-Forwarded-For retest with IP Address Forwarding on

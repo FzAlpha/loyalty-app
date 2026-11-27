@@ -10,7 +10,7 @@ import { ErrorBox, Loading, Muted, Screen, SectionTitle } from "../../components
 import { FadeContent } from "../../fx/FadeContent";
 import { ShinyText } from "../../fx/ShinyText";
 import { errorMessage } from "../../lib/errors";
-import { apiErrorOf, useBusinesses, useCategories, useMe, useOffers } from "../../lib/queries";
+import { apiErrorOf, useBusinesses, useBusinessNames, useCategories, useMe, useOffers } from "../../lib/queries";
 import { strings } from "../../strings";
 import { colors, gradients } from "../../theme";
 
@@ -26,7 +26,7 @@ export default function Home() {
   const categories = useCategories();
   const businesses = useBusinesses();
   const offers = useOffers();
-  const businessName = (id: string) => businesses.data?.find((b) => b.id === id)?.name ?? undefined;
+  const businessName = useBusinessNames();
   // Group companies and partner businesses are shown separately (businesses.kind).
   const groups = (businesses.data ?? []).filter((b) => b.kind === "group");
   const partnerIds = new Set((businesses.data ?? []).filter((b) => b.kind === "partner").map((b) => b.id));

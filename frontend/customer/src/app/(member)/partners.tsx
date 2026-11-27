@@ -1,6 +1,7 @@
 // Partner businesses (businesses.kind = 'partner') and their offers. Partner offers are ordinary offers
 // from api.list_eligible_offers, so they are claimed and redeemed like group offers (offers tab).
 import { router } from "expo-router";
+import { useMemo } from "react";
 import { View } from "react-native";
 import { PageHeader } from "../../components/Brand";
 import { OfferCard } from "../../components/OfferCard";
@@ -17,6 +18,12 @@ export default function Partners() {
   const offers = useOffers();
   const failed = businesses.error ?? offers.error;
   const partners = (businesses.data ?? []).filter((b) => b.kind === "partner");
+  // Offers grouped by business once, not filtered again for every partner.
+  const byBusiness = useMemo(() => {
+    const m = new Map<string, NonNullable<typeof offers.data>>();
+    for (const o of offers.data ?? []) m.set(o.business_id, [...(m.get(o.business_id) ?? []), o]);
+    return m;
+  }, [offers.data]);
 
   return (
     <Screen>
@@ -26,7 +33,7 @@ export default function Partners() {
           onRetry={() => { void businesses.refetch(); void offers.refetch(); }} />
       ) : partners.length === 0 ? <Muted>{strings.partners.noBusinesses}</Muted> : (
         partners.map((b, i) => {
-          const own = (offers.data ?? []).filter((o) => o.business_id === b.id);
+          const own = byBusiness.get(b.id) ?? [];
           return (
             <FadeContent key={b.id} index={i} className="mt-4">
               <View className="flex-row items-center mb-2">

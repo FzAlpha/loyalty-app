@@ -41,7 +41,7 @@ jobs:
         run: npx -y pnpm@12.21.0 install --frozen-lockfile
       - name: Typecheck packages
         run: npx -y pnpm@12.21.0 -r typecheck
-      - name: Unit tests (packages/shared, packages/api)
+      - name: Unit tests (packages + apps)
         run: npx -y pnpm@12.21.0 -r test
 
   security:

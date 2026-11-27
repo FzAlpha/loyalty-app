@@ -1,6 +1,7 @@
 // QR camera with permission handling. Calls onScan once per QR; the parent shows the result and
 // remounts (or sets paused=false) to scan again. Android only: the web build shows a notice.
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
+import { useIsFocused } from "expo-router";
 import { useEffect, useRef } from "react";
 import { Linking, Platform, View } from "react-native";
 import { colors, Text } from "@rewards/ui";
@@ -24,6 +25,9 @@ function Corners() {
 
 export function Scanner({ hint, onScan, paused }: { hint: string; onScan: (data: string) => void; paused: boolean }) {
   const [permission, requestPermission] = useCameraPermissions();
+  // The camera runs only while this screen is visible: a screen left in the stack would otherwise keep
+  // the camera and QR decoder busy (battery and CPU on low-end phones).
+  const focused = useIsFocused();
   const locked = useRef(false); // the camera fires many events per QR; handle only the first
   useEffect(() => { if (!paused) locked.current = false; }, [paused]);
 
@@ -48,7 +52,7 @@ export function Scanner({ hint, onScan, paused }: { hint: string; onScan: (data:
   return (
     <View>
       <View style={{ height: FRAME + 60, borderRadius: 20, overflow: "hidden", borderWidth: 1, borderColor: colors.line }}>
-        {!paused ? (
+        {!paused && focused ? (
           <CameraView style={{ flex: 1 }} facing="back" barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={handle} />
         ) : (
           <View style={{ flex: 1, backgroundColor: colors.surface }} />
