@@ -10,7 +10,7 @@ import { ErrorBox, Loading, Muted, Screen, SectionTitle } from "../../components
 import { FadeContent } from "../../fx/FadeContent";
 import { ShinyText } from "../../fx/ShinyText";
 import { errorMessage } from "../../lib/errors";
-import { apiErrorOf, useBusinesses, useCategories, useMe, useOffers, usePartnerOffers } from "../../lib/queries";
+import { apiErrorOf, useBusinesses, useCategories, useMe, useOffers } from "../../lib/queries";
 import { strings } from "../../strings";
 import { colors, gradients } from "../../theme";
 
@@ -26,8 +26,11 @@ export default function Home() {
   const categories = useCategories();
   const businesses = useBusinesses();
   const offers = useOffers();
-  const partners = usePartnerOffers();
   const businessName = (id: string) => businesses.data?.find((b) => b.id === id)?.name ?? undefined;
+  // Group companies and partner businesses are shown separately (businesses.kind).
+  const groups = (businesses.data ?? []).filter((b) => b.kind === "group");
+  const partnerIds = new Set((businesses.data ?? []).filter((b) => b.kind === "partner").map((b) => b.id));
+  const partnerOffers = (offers.data ?? []).filter((o) => partnerIds.has(o.business_id));
 
   return (
     <Screen>
@@ -79,11 +82,11 @@ export default function Home() {
       )}
 
       <SectionTitle>{strings.home.companies}</SectionTitle>
-      {businesses.isPending ? <Loading /> : (businesses.data?.length ?? 0) === 0 ? (
+      {businesses.isPending ? <Loading /> : groups.length === 0 ? (
         <Muted>{strings.home.noCompanies}</Muted>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-          {businesses.data!.map((b) => (
+          {groups.map((b) => (
             <View key={b.id} className="bg-surface border border-line rounded-xl p-3 items-center" style={{ width: 110 }}>
               <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: b.brand_color ?? colors.goldDark,
                 alignItems: "center", justifyContent: "center" }}>
@@ -110,16 +113,14 @@ export default function Home() {
       )}
 
       <SectionTitle action={{ label: strings.home.seeAll, onPress: () => router.push("/partners") }}>
-        {strings.home.travel}
+        {strings.home.partners}
       </SectionTitle>
-      {partners.isPending ? <Loading /> : (partners.data?.length ?? 0) === 0 ? <Muted>{strings.partners.none}</Muted> : (
-        partners.data!.slice(0, 2).map((p) => (
-          <Pressable key={p.id} onPress={() => router.push("/partners")} accessibilityRole="button"
-            className="bg-surface rounded-2xl p-4 mb-3 border border-surface2">
-            <Text className="text-goldLight text-xs">{p.partner_name}</Text>
-            <Text className="text-text text-base font-bold mt-1">{p.title}</Text>
-            {p.discount_text ? <Text className="text-muted text-sm mt-1">{p.discount_text}</Text> : null}
-          </Pressable>
+      {offers.isPending || businesses.isPending ? <Loading /> : partnerOffers.length === 0 ? <Muted>{strings.partners.none}</Muted> : (
+        partnerOffers.slice(0, 2).map((o, i) => (
+          <FadeContent key={o.id} index={i}>
+            <OfferCard offer={o} businessName={businessName(o.business_id)}
+              onPress={() => router.push({ pathname: "/(tabs)/offers", params: { offer: o.id } })} />
+          </FadeContent>
         ))
       )}
     </Screen>

@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(71);
+select plan(68);
 
 -- ---------------------------------------------------------------- fixtures
 insert into auth.users (id, phone, raw_user_meta_data, raw_app_meta_data) values
@@ -183,37 +183,33 @@ select is((select count(*)::int from audit.audit_logs where action in ('offer.cr
 -- ---------------------------------------------------------------- storage (§10)
 select is((select count(*)::int from storage.buckets where public and id in (
              private.get_setting('storage.bucket.business_assets') #>> '{}',
-             private.get_setting('storage.bucket.offer_banners') #>> '{}',
-             private.get_setting('storage.bucket.partner_images') #>> '{}')), 3,
-          'asset buckets (incl. partner images) exist and are public (public read)');
+             private.get_setting('storage.bucket.offer_banners') #>> '{}')), 2,
+          'asset buckets exist and are public (public read)');
+select ok(not exists (select 1 from app_settings where key = 'storage.bucket.partner_images'),
+          'partner-images setting removed (2026-11-27)');
 select is((select count(*)::int from pg_policies where schemaname = 'storage' and tablename = 'objects'
            and policyname like 'rewards_assets_%'), 4, 'storage write policies installed');
 select ok(api.storage_can_write('offer-banners', 'b1000000-0000-0000-0000-0000000000b1/x.png'), 'owner can write banners');
 select ok(not api.storage_can_write('offer-banners', 'not-a-uuid/x.png'), 'path must start with a business id');
 select ok(not api.storage_can_write('other-bucket', 'b1000000-0000-0000-0000-0000000000b1/x.png'), 'unknown bucket refused');
-select ok(api.storage_can_write('partner-images', 'f0000000-0000-0000-0000-0000000000f1/logo.png'), 'owner can write partner images');
-select ok(not api.storage_can_write('partner-images', 'not-a-uuid/logo.png'), 'partner image path must start with a uuid');
-select ok(not api.storage_can_write('partner-images', 'f0000000-0000-0000-0000-0000000000f1'), 'partner image needs a file under the id folder');
+select ok(not api.storage_can_write('offer-banners', 'b1000000-0000-0000-0000-0000000000b1'), 'banner needs a file under the id folder');
 select is(api.get_storage_buckets(), jsonb_build_object(
             'business_assets', private.get_setting('storage.bucket.business_assets') #>> '{}',
-            'offer_banners',   private.get_setting('storage.bucket.offer_banners') #>> '{}',
-            'partner_images',  private.get_setting('storage.bucket.partner_images') #>> '{}'),
+            'offer_banners',   private.get_setting('storage.bucket.offer_banners') #>> '{}'),
           'get_storage_buckets returns the bucket settings');
 select ok(has_function_privilege('authenticated', 'api.get_storage_buckets()', 'execute')
           and not has_function_privilege('anon', 'api.get_storage_buckets()', 'execute'),
           'get_storage_buckets: authenticated only');
 set local request.jwt.claims = '{"sub":"e0000000-0000-0000-0000-0000000000ee","role":"authenticated","session_id":"5e000000-0000-0000-0000-0000000000ee"}';
 select ok(not api.storage_can_write('offer-banners', 'b1000000-0000-0000-0000-0000000000b1/x.png'), 'executive cannot write banners');
-select ok(not api.storage_can_write('partner-images', 'f0000000-0000-0000-0000-0000000000f1/logo.png'), 'executive cannot write partner images');
-select is(api.get_storage_buckets() ->> 'partner_images', private.get_setting('storage.bucket.partner_images') #>> '{}',
+select is(api.get_storage_buckets() ->> 'business_assets', private.get_setting('storage.bucket.business_assets') #>> '{}',
           'executive can read bucket names');
 set local request.jwt.claims = '{"sub":"ca000000-0000-0000-0000-0000000000ca","role":"authenticated","session_id":"5ca00000-0000-0000-0000-0000000000ca"}';
-select ok(not api.storage_can_write('partner-images', 'f0000000-0000-0000-0000-0000000000f1/logo.png'), 'customer cannot write partner images');
 select ok(not api.storage_can_write('offer-banners', 'b1000000-0000-0000-0000-0000000000b1/x.png'), 'customer cannot write banners');
 select is(api.get_storage_buckets() ->> 'offer_banners', private.get_setting('storage.bucket.offer_banners') #>> '{}',
           'customer can read bucket names');
 set local request.jwt.claims = '{"role":"anon"}';
-select ok(not api.storage_can_write('partner-images', 'f0000000-0000-0000-0000-0000000000f1/logo.png'), 'anon cannot write partner images');
+select ok(not api.storage_can_write('offer-banners', 'b1000000-0000-0000-0000-0000000000b1/x.png'), 'anon cannot write banners');
 select throws_ok($$select api.get_storage_buckets()$$, 'PT401', 'UNAUTHENTICATED', 'anon cannot read bucket names');
 
 select * from finish();

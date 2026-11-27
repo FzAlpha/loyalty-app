@@ -1,4 +1,4 @@
-// Staff home: who you are, where you are working, and the three counter actions.
+// Staff home: who you are, where you are working, and the counter actions (partners: their offers).
 import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -18,6 +18,7 @@ export default function Home() {
   const me = staff.data;
   if (!me) return <Screen><Loading /></Screen>;
   const isOwner = me.role === "owner";
+  const isPartner = me.role === "partner";
 
   return (
     <Screen onRefresh={() => staff.refetch()} refreshing={staff.isRefetching}>
@@ -25,7 +26,7 @@ export default function Home() {
         <Image source={brand.emblem} style={{ width: 44, height: 44 }} resizeMode="contain" accessibilityIgnoresInvertColors />
         <View className="ml-3 flex-1">
           <Text className="text-goldLight text-2xl font-bold">{strings.home.hello(me.display_name)}</Text>
-          <Text className="text-muted text-base">{isOwner ? strings.home.owner : strings.home.executive}</Text>
+          <Text className="text-muted text-base">{isOwner ? strings.home.owner : isPartner ? strings.home.partner : strings.home.executive}</Text>
         </View>
       </View>
 
@@ -43,8 +44,14 @@ export default function Home() {
 
       <SectionTitle>{strings.home.actions}</SectionTitle>
       {/* Offer scans need no picked business: the QR names it and the server checks it. */}
-      <ActionTile icon="card-outline" label={strings.home.scanCard} hint={strings.home.scanCardHint}
-        disabled={!businessId} onPress={() => router.push("/scan-card")} />
+      {/* Partners cannot approve cards, so they get their offers instead. */}
+      {isPartner ? (
+        <ActionTile icon="megaphone-outline" label={strings.partner.offersTile} hint={strings.partner.offersTileHint}
+          disabled={!businessId} onPress={() => router.push("/offers")} />
+      ) : (
+        <ActionTile icon="card-outline" label={strings.home.scanCard} hint={strings.home.scanCardHint}
+          disabled={!businessId} onPress={() => router.push("/scan-card")} />
+      )}
       <ActionTile icon="pricetag-outline" label={strings.home.scanOffer} hint={strings.home.scanOfferHint}
         onPress={() => router.push("/scan-offer")} />
       <ActionTile icon="today-outline" label={strings.home.today} hint={strings.home.todayHint}

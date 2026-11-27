@@ -2,6 +2,7 @@
 insert into public.roles (key, name) values
   ('customer',  'Customer'),
   ('executive', 'Executive (one business)'),
+  ('partner',   'Partner business (own business only)'),
   ('owner',     'Owner (all businesses)')
 on conflict (key) do update set name = excluded.name;
 
@@ -26,16 +27,19 @@ insert into public.permissions (key, description) values
   ('report.view',                    'View reports'),
   ('audit.view',                     'View audit logs'),
   ('settings.manage',                'Change app settings'),
-  ('partner.manage',                 'Create and edit partners and partner offers')
+  ('partner.manage',                 'Approve, reject and revoke partner businesses')
 on conflict (key) do update set description = excluded.description;
 
--- Executive: front-of-store work for one business. Owner: everything.
+-- Executive: front-of-store work for one business. Partner: its own offers and redemptions
+-- (plan §4 partners). Owner: everything.
 with m(role_key, perm_key) as (
   values
     ('executive', 'card.view'), ('executive', 'card.approve'),
     ('executive', 'claim.preview'), ('executive', 'claim.redeem'),
     ('executive', 'customer.view'), ('executive', 'customer.recover'),
-    ('executive', 'customer.identity_check'), ('executive', 'customer.release_phone.request')
+    ('executive', 'customer.identity_check'), ('executive', 'customer.release_phone.request'),
+    ('partner', 'offer.manage'), ('partner', 'card.view'),
+    ('partner', 'claim.preview'), ('partner', 'claim.redeem')
   union all
   select 'owner', key from public.permissions
 )

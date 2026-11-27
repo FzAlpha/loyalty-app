@@ -1,57 +1,51 @@
-// Travel / partner privileges. Info only: no claim QR, no redemption tracking.
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { Linking, View } from "react-native";
+// Partner businesses (businesses.kind = 'partner') and their offers. Partner offers are ordinary offers
+// from api.list_eligible_offers, so they are claimed and redeemed like group offers (offers tab).
+import { router } from "expo-router";
+import { View } from "react-native";
 import { PageHeader } from "../../components/Brand";
+import { OfferCard } from "../../components/OfferCard";
 import { Text } from "../../components/Text";
-import { ErrorBox, Loading, Muted, Screen, fmtDate } from "../../components/ui";
+import { ErrorBox, Loading, Muted, Screen } from "../../components/ui";
 import { FadeContent } from "../../fx/FadeContent";
-import { StarBorder } from "../../fx/StarBorder";
 import { errorMessage } from "../../lib/errors";
-import { apiErrorOf, usePartnerOffers } from "../../lib/queries";
+import { apiErrorOf, useBusinesses, useOffers } from "../../lib/queries";
 import { strings } from "../../strings";
 import { colors } from "../../theme";
 
 export default function Partners() {
-  const q = usePartnerOffers();
+  const businesses = useBusinesses();
+  const offers = useOffers();
+  const failed = businesses.error ?? offers.error;
+  const partners = (businesses.data ?? []).filter((b) => b.kind === "partner");
+
   return (
     <Screen>
       <PageHeader back title={strings.partners.title} subtitle={strings.partners.subtitle} />
-      <View className="flex-row items-center mb-1">
-        <Ionicons name="information-circle-outline" size={16} color={colors.muted} />
-        <Text className="text-muted text-xs ml-1.5 flex-1">{strings.partners.infoOnly}</Text>
-      </View>
-      {q.isPending ? <Loading /> : q.error ? (
-        <ErrorBox message={errorMessage(apiErrorOf(q.error))} onRetry={() => q.refetch()} />
-      ) : (q.data?.length ?? 0) === 0 ? <Muted>{strings.partners.none}</Muted> : (
-        q.data!.map((p, i) => (
-          <FadeContent key={p.id} index={i} className="bg-surface rounded-2xl p-4 mt-3 border border-line">
-            <View className="flex-row items-center">
-              <View className="rounded-full items-center justify-center bg-surface2 border border-line"
-                style={{ width: 32, height: 32 }}>
-                <Ionicons name="airplane" size={16} color={colors.gold} />
+      {businesses.isPending || offers.isPending ? <Loading /> : failed ? (
+        <ErrorBox message={errorMessage(apiErrorOf(failed))}
+          onRetry={() => { void businesses.refetch(); void offers.refetch(); }} />
+      ) : partners.length === 0 ? <Muted>{strings.partners.noBusinesses}</Muted> : (
+        partners.map((b, i) => {
+          const own = (offers.data ?? []).filter((o) => o.business_id === b.id);
+          return (
+            <FadeContent key={b.id} index={i} className="mt-4">
+              <View className="flex-row items-center mb-2">
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: b.brand_color ?? colors.goldDark,
+                  alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ color: colors.onGold, fontWeight: "700", fontSize: 16 }}>{b.name.slice(0, 1)}</Text>
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text className="text-text text-base font-bold">{b.name}</Text>
+                  {b.category ? <Text className="text-muted text-xs">{b.category}</Text> : null}
+                </View>
               </View>
-              <Text className="text-goldLight text-xs ml-2 flex-1">{p.partner_name}</Text>
-              {p.discount_text ? (
-                <View className="bg-gold rounded-full px-2.5 py-1"><Text className="text-onGold text-xs font-bold">{p.discount_text}</Text></View>
-              ) : null}
-            </View>
-            <Text className="text-text text-lg font-bold mt-1">{p.title}</Text>
-            {p.description ? <Text className="text-muted text-sm mt-2">{p.description}</Text> : null}
-            {p.claim_code ? (
-              <View className="self-start border border-dashed border-gold rounded-lg px-3 py-1.5 mt-3">
-                <Text className="text-goldLight text-sm tracking-widest" selectable>{strings.partners.code(p.claim_code)}</Text>
-              </View>
-            ) : null}
-            {p.ends_at ? <Text className="text-muted text-xs mt-2">{strings.offers.validTill(fmtDate(p.ends_at))}</Text> : null}
-            {p.terms ? <Text className="text-muted text-xs mt-2">{p.terms}</Text> : null}
-            {(p.claim_url ?? p.partner_website_url) ? (
-              <View style={{ marginTop: 12 }}>
-                <StarBorder label={strings.partners.open} variant="dark"
-                  onPress={() => Linking.openURL((p.claim_url ?? p.partner_website_url)!)} />
-              </View>
-            ) : null}
-          </FadeContent>
-        ))
+              {own.length === 0 ? <Muted>{strings.partners.noOffers}</Muted> : own.map((o) => (
+                <OfferCard key={o.id} offer={o} businessName={b.name}
+                  onPress={() => router.push({ pathname: "/(tabs)/offers", params: { offer: o.id } })} />
+              ))}
+            </FadeContent>
+          );
+        })
       )}
     </Screen>
   );

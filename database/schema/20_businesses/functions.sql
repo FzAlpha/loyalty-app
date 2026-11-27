@@ -45,6 +45,10 @@ begin
   if p_patch ? 'is_active' and jsonb_typeof(p_patch -> 'is_active') <> 'boolean' then
     perform private.raise_error('VALIDATION_FAILED', 'is_active');
   end if;
+  -- Partner businesses are activated only by partner decisions (api.decide_partner / api.revoke_partner).
+  if p_patch ? 'is_active' and private.business_kind(p_business_id) = 'partner' then
+    perform private.raise_error('CONFLICT', 'partner activation uses partner decisions');
+  end if;
   if p_patch ? 'opening_hours' and jsonb_typeof(p_patch -> 'opening_hours') not in ('object', 'array', 'null') then
     perform private.raise_error('VALIDATION_FAILED', 'opening_hours');
   end if;
@@ -81,14 +85,16 @@ end;
 $$;
 
 -- Business directory for the apps (F1, plan §6). Active businesses only; public like the table.
-create or replace function api.list_businesses()
-returns table (id uuid, name text, category text, logo_path text, brand_color text, website_url text)
+-- kind (group / partner) added 2026-11-27; the return type changed, so drop first.
+drop function if exists api.list_businesses();
+create function api.list_businesses()
+returns table (id uuid, name text, category text, logo_path text, brand_color text, website_url text, kind text)
 language sql
 stable
 security definer
 set search_path = ''
 as $$
-  select b.id, b.name, b.category, b.logo_path, b.brand_color, b.website_url
+  select b.id, b.name, b.category, b.logo_path, b.brand_color, b.website_url, b.kind
   from public.businesses b
   where b.is_active
   order by b.name, b.id;
@@ -131,10 +137,37 @@ begin
 end;
 $$;
 
--- Owner adds a business (business.manage at owner scope). p_business: {name (required), category,
--- address, phone, website_url, timezone, brand_color}. slug comes from the name (unique, -2, -3...).
-create or replace function api.create_business(p_business jsonb)
-returns jsonb
+-- group / partner for other modules (30_staff roles, 55_partners). Unknown id = null.
+create or replace function private.business_kind(p_business_id uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select b.kind from public.businesses b where b.id = p_business_id;
+$$;
+
+-- Activate / deactivate for 55_partners decisions. The row audit trigger records the change.
+create or replace function private.set_business_active(p_business_id uuid, p_active boolean)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.businesses set is_active = p_active where id = p_business_id;
+  if not found then
+    perform private.raise_error('NOT_FOUND', 'business');
+  end if;
+end;
+$$;
+
+-- Shared insert for api.create_business (owner) and 55_partners (partner sign-up). Callers check
+-- permissions. p_business: {name (required), category, address, phone, website_url, timezone,
+-- brand_color}. slug comes from the name (unique, -2, -3...).
+create or replace function private.create_business_row(p_business jsonb, p_kind text, p_active boolean)
+returns public.businesses
 language plpgsql
 security definer
 set search_path = ''
@@ -147,7 +180,6 @@ declare
   v_slug text;
   v_n integer := 1;
 begin
-  perform private.require_permission('business.manage', null);
   if p_business is null or jsonb_typeof(p_business) <> 'object' then
     perform private.raise_error('VALIDATION_FAILED', 'business');
   end if;
@@ -181,14 +213,16 @@ begin
   end loop;
 
   begin
-    insert into public.businesses (slug, name, category, address, phone, website_url, timezone, brand_color)
+    insert into public.businesses (slug, name, category, address, phone, website_url, timezone, brand_color,
+                                   kind, is_active)
     values (v_slug, v_name,
             nullif(btrim(p_business ->> 'category'), ''),
             nullif(btrim(p_business ->> 'address'), ''),
             nullif(btrim(p_business ->> 'phone'), ''),
             nullif(btrim(p_business ->> 'website_url'), ''),
             nullif(btrim(p_business ->> 'timezone'), ''),
-            nullif(btrim(p_business ->> 'brand_color'), ''))
+            nullif(btrim(p_business ->> 'brand_color'), ''),
+            p_kind, coalesce(p_active, true))
     returning * into v_row;
   exception
     when check_violation or not_null_violation then
@@ -196,7 +230,20 @@ begin
     when unique_violation then
       perform private.raise_error('CONFLICT', 'slug');
   end;
-  return to_jsonb(v_row);
+  return v_row;
+end;
+$$;
+
+-- Owner adds a business (business.manage at owner scope); fields as private.create_business_row.
+create or replace function api.create_business(p_business jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.require_permission('business.manage', null);
+  return to_jsonb(private.create_business_row(p_business, 'group', true));
 end;
 $$;
 

@@ -1,192 +1,191 @@
--- 55_partners functions (F1, plan §6).
+-- 55_partners functions (plan §4 partners, §6; 2026-11-27).
 
--- Partner offers for members: active, in date, active partner. Non-members get an empty list
--- (same as api.list_eligible_offers).
-create or replace function api.list_partner_offers()
-returns table (id uuid, partner_id uuid, partner_name text, partner_logo_path text, partner_website_url text,
-               title text, description text, banner_path text, terms text, discount_text text,
-               claim_url text, claim_code text, starts_at timestamptz, ends_at timestamptz)
+-- Service-role only (partner-apply Edge Function). The function creates the Auth user with the
+-- Auth Admin API first (app_metadata.account_type = staff), then calls this for the database side.
+-- p_application: {business_name, contact_name (required); category, address, phone, website_url,
+-- message}. Creates an inactive partner business, the applicant's staff row and a pending
+-- application. No role is granted until the owner approves.
+create or replace function api.svc_partner_register(p_user_id uuid, p_application jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_bad text;
+  v_contact text;
+  v_biz public.businesses;
+  v_app public.partner_applications;
+begin
+  if p_application is null or jsonb_typeof(p_application) <> 'object' then
+    perform private.raise_error('VALIDATION_FAILED', 'application');
+  end if;
+  select k into v_bad from jsonb_object_keys(p_application) k
+  where k not in ('business_name', 'contact_name', 'category', 'address', 'phone', 'website_url', 'message')
+     or jsonb_typeof(p_application -> k) not in ('string', 'null')
+  limit 1;
+  if v_bad is not null then
+    perform private.raise_error('VALIDATION_FAILED', 'field: ' || v_bad);
+  end if;
+  v_contact := nullif(btrim(p_application ->> 'contact_name'), '');
+  if v_contact is null then
+    perform private.raise_error('VALIDATION_FAILED', 'contact_name');
+  end if;
+  if not exists (select 1 from public.profiles where id = p_user_id) then
+    perform private.raise_error('NOT_FOUND', 'user');
+  end if;
+
+  v_biz := private.create_business_row(jsonb_build_object(
+      'name', p_application ->> 'business_name',
+      'category', p_application ->> 'category',
+      'address', p_application ->> 'address',
+      'phone', p_application ->> 'phone',
+      'website_url', p_application ->> 'website_url'),
+    'partner', false);
+  perform private.create_partner_staff(p_user_id, v_biz.id, v_contact);
+
+  begin
+    insert into public.partner_applications (business_id, applicant_id, message)
+    values (v_biz.id, p_user_id, nullif(btrim(p_application ->> 'message'), ''))
+    returning * into v_app;
+  exception
+    when check_violation then
+      perform private.raise_error('VALIDATION_FAILED', 'message');
+    when unique_violation then
+      perform private.raise_error('CONFLICT', 'already applied');
+  end;
+
+  perform audit.write_as(p_user_id, 'partner.applied', 'partner_application', v_biz.id, null,
+    to_jsonb(v_app), v_biz.id);
+  return jsonb_build_object('business_id', v_biz.id, 'status', v_app.status);
+end;
+$$;
+
+-- Owner dashboard: applications with business and applicant details, newest first.
+create or replace function api.list_partner_applications(p_status public.partner_status default null)
+returns table (business_id uuid, business_name text, category text, address text, business_phone text,
+               website_url text, logo_path text, is_active boolean, applicant_id uuid, contact_name text,
+               applicant_phone text, status public.partner_status, message text, decided_at timestamptz,
+               decision_note text, created_at timestamptz)
 language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
-declare
-  v_uid uuid := private.require_auth();
-  v_c record;
 begin
-  if not private.session_is_live() then
-    perform private.raise_error('FORBIDDEN', 'partner_offer.list');
-  end if;
-  select * into v_c from private.customer_offer_facts(v_uid);
-  if not found or v_c.account_status <> 'active' or v_c.membership_status <> 'active' then
-    return;
-  end if;
+  perform private.require_permission('partner.manage', null);
   return query
-    select o.id, p.id, p.name, p.logo_path, p.website_url, o.title, o.description, o.banner_path, o.terms,
-           o.discount_text, o.claim_url, o.claim_code, o.starts_at, o.ends_at
-    from public.partner_offers o
-    join public.partners p on p.id = o.partner_id
-    where p.is_active and o.status = 'active' and o.starts_at <= now() and (o.ends_at is null or o.ends_at > now())
-    order by o.starts_at desc, o.id;
+    select a.business_id, b.name, b.category, b.address, b.phone, b.website_url, b.logo_path, b.is_active,
+           a.applicant_id, s.display_name, p.phone_e164, a.status, a.message, a.decided_at, a.decision_note,
+           a.created_at
+    from public.partner_applications a
+    join public.businesses b on b.id = a.business_id
+    join public.profiles p on p.id = a.applicant_id
+    left join public.staff s on s.user_id = a.applicant_id
+    where p_status is null or a.status = p_status
+    order by a.created_at desc, a.business_id;
 end;
 $$;
 
--- p_partner: {id?, name, logo_path, website_url, is_active}. Updates replace every field.
-create or replace function api.upsert_partner(p_partner jsonb)
+-- Owner approves or rejects. Approve (from pending, rejected or revoked): grant role 'partner' for
+-- that business and activate it. Reject (from pending only): the business stays inactive.
+create or replace function api.decide_partner(p_business_id uuid, p_approve boolean, p_note text default null)
 returns jsonb
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
-  v_id uuid;
-  v_before public.partners;
-  v_after public.partners;
+  v_uid uuid := private.require_permission('partner.manage', null);
+  v_a public.partner_applications;
+  v_new public.partner_status;
 begin
-  perform private.require_permission('partner.manage', null);
-  if p_partner is null or jsonb_typeof(p_partner) <> 'object' then
-    perform private.raise_error('VALIDATION_FAILED', 'partner');
+  if p_business_id is null or p_approve is null then
+    perform private.raise_error('VALIDATION_FAILED', 'business_id and approve required');
   end if;
-  if p_partner ? 'is_active' and jsonb_typeof(p_partner -> 'is_active') <> 'boolean' then
-    perform private.raise_error('VALIDATION_FAILED', 'is_active');
+  if char_length(p_note) > 500 then
+    perform private.raise_error('VALIDATION_FAILED', 'note');
   end if;
-  begin
-    v_id := (p_partner ->> 'id')::uuid;
-  exception when invalid_text_representation then
-    perform private.raise_error('VALIDATION_FAILED', 'id');
-  end;
-  if v_id is not null then
-    select * into v_before from public.partners where id = v_id for update;
-    if not found then
-      perform private.raise_error('NOT_FOUND', 'partner');
-    end if;
-  end if;
-
-  begin
-    if v_id is null then
-      insert into public.partners (name, logo_path, website_url, is_active)
-      values (btrim(p_partner ->> 'name'), nullif(btrim(p_partner ->> 'logo_path'), ''),
-              nullif(btrim(p_partner ->> 'website_url'), ''), coalesce((p_partner ->> 'is_active')::boolean, true))
-      returning * into v_after;
-    else
-      update public.partners set
-        name = btrim(p_partner ->> 'name'),
-        logo_path = nullif(btrim(p_partner ->> 'logo_path'), ''),
-        website_url = nullif(btrim(p_partner ->> 'website_url'), ''),
-        is_active = coalesce((p_partner ->> 'is_active')::boolean, v_before.is_active)
-      where id = v_id
-      returning * into v_after;
-    end if;
-  exception when check_violation or not_null_violation then
-    perform private.raise_error('VALIDATION_FAILED', sqlerrm);
-  end;
-
-  perform audit.write(case when v_id is null then 'partner.created' else 'partner.updated' end, 'partner',
-    v_after.id, case when v_id is not null then to_jsonb(v_before) end, to_jsonb(v_after), null);
-  return jsonb_build_object('partner_id', v_after.id, 'is_active', v_after.is_active);
-end;
-$$;
-
--- p_offer: {id?, partner_id (new only), title, description, banner_path, terms, discount_text,
--- claim_url, claim_code, starts_at, ends_at}. Updates replace every field. New offers start as draft.
-create or replace function api.upsert_partner_offer(p_offer jsonb)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_uid uuid;
-  v_id uuid;
-  v_partner uuid;
-  v_before public.partner_offers;
-  v_after public.partner_offers;
-begin
-  v_uid := private.require_permission('partner.manage', null);
-  if p_offer is null or jsonb_typeof(p_offer) <> 'object' then
-    perform private.raise_error('VALIDATION_FAILED', 'offer');
-  end if;
-  begin
-    v_id := (p_offer ->> 'id')::uuid;
-    v_partner := (p_offer ->> 'partner_id')::uuid;
-  exception when invalid_text_representation then
-    perform private.raise_error('VALIDATION_FAILED', 'id');
-  end;
-  if v_id is not null then
-    select * into v_before from public.partner_offers where id = v_id for update;
-    if not found then
-      perform private.raise_error('NOT_FOUND', 'partner_offer');
-    end if;
-    if p_offer ? 'partner_id' and v_partner is distinct from v_before.partner_id then
-      perform private.raise_error('VALIDATION_FAILED', 'partner_id cannot change');
-    end if;
-    if v_before.status = 'archived' then
-      perform private.raise_error('CONFLICT', 'partner offer archived');
-    end if;
-  elsif v_partner is null then
-    perform private.raise_error('VALIDATION_FAILED', 'partner_id required');
-  end if;
-
-  begin
-    if v_id is null then
-      insert into public.partner_offers (partner_id, title, description, banner_path, terms, discount_text,
-        claim_url, claim_code, starts_at, ends_at, created_by)
-      values (v_partner, btrim(p_offer ->> 'title'), p_offer ->> 'description',
-        nullif(btrim(p_offer ->> 'banner_path'), ''), p_offer ->> 'terms', nullif(btrim(p_offer ->> 'discount_text'), ''),
-        nullif(btrim(p_offer ->> 'claim_url'), ''), nullif(btrim(p_offer ->> 'claim_code'), ''),
-        coalesce((p_offer ->> 'starts_at')::timestamptz, now()), (p_offer ->> 'ends_at')::timestamptz, v_uid)
-      returning * into v_after;
-    else
-      update public.partner_offers set
-        title = btrim(p_offer ->> 'title'),
-        description = p_offer ->> 'description',
-        banner_path = nullif(btrim(p_offer ->> 'banner_path'), ''),
-        terms = p_offer ->> 'terms',
-        discount_text = nullif(btrim(p_offer ->> 'discount_text'), ''),
-        claim_url = nullif(btrim(p_offer ->> 'claim_url'), ''),
-        claim_code = nullif(btrim(p_offer ->> 'claim_code'), ''),
-        starts_at = coalesce((p_offer ->> 'starts_at')::timestamptz, v_before.starts_at),
-        ends_at = (p_offer ->> 'ends_at')::timestamptz
-      where id = v_id
-      returning * into v_after;
-    end if;
-  exception
-    when check_violation or not_null_violation or foreign_key_violation or invalid_text_representation
-      or invalid_datetime_format or datetime_field_overflow then
-      perform private.raise_error('VALIDATION_FAILED', sqlerrm);
-  end;
-
-  perform audit.write(case when v_id is null then 'partner_offer.created' else 'partner_offer.updated' end,
-    'partner_offer', v_after.id, case when v_id is not null then to_jsonb(v_before) end, to_jsonb(v_after), null);
-  return jsonb_build_object('partner_offer_id', v_after.id, 'status', v_after.status);
-end;
-$$;
-
--- Status changes. archived is final.
-create or replace function api.set_partner_offer_status(p_offer_id uuid, p_status public.partner_offer_status)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_o public.partner_offers;
-begin
-  perform private.require_permission('partner.manage', null);
-  if p_status is null then
-    perform private.raise_error('VALIDATION_FAILED', 'status');
-  end if;
-  select * into v_o from public.partner_offers where id = p_offer_id for update;
+  select * into v_a from public.partner_applications where business_id = p_business_id for update;
   if not found then
-    perform private.raise_error('NOT_FOUND', 'partner_offer');
+    perform private.raise_error('NOT_FOUND', 'partner_application');
   end if;
-  if v_o.status = 'archived' and p_status <> 'archived' then
-    perform private.raise_error('CONFLICT', 'partner offer archived');
+
+  if p_approve then
+    if v_a.status = 'approved' then
+      perform private.raise_error('CONFLICT', 'already approved');
+    end if;
+    v_new := 'approved';
+    perform private.grant_role(v_a.applicant_id, 'partner', v_a.business_id, v_uid);
+    perform private.set_business_active(v_a.business_id, true);
+  else
+    if v_a.status <> 'pending' then
+      perform private.raise_error('CONFLICT', 'only pending applications can be rejected');
+    end if;
+    v_new := 'rejected';
   end if;
-  update public.partner_offers set status = p_status where id = v_o.id;
-  perform audit.write('partner_offer.status_changed', 'partner_offer', v_o.id, jsonb_build_object('status', v_o.status),
-    jsonb_build_object('status', p_status), null);
-  return jsonb_build_object('partner_offer_id', v_o.id, 'status', p_status);
+
+  update public.partner_applications
+  set status = v_new, decided_by = v_uid, decided_at = now(), decision_note = nullif(btrim(p_note), '')
+  where business_id = v_a.business_id;
+  perform audit.write(case when p_approve then 'partner.approved' else 'partner.rejected' end,
+    'partner_application', v_a.business_id, jsonb_build_object('status', v_a.status),
+    jsonb_build_object('status', v_new, 'note', nullif(btrim(p_note), '')), v_a.business_id);
+  return jsonb_build_object('business_id', v_a.business_id, 'status', v_new);
 end;
+$$;
+
+-- Owner revokes an approved partner: role removed, business deactivated, active offers paused.
+create or replace function api.revoke_partner(p_business_id uuid, p_note text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := private.require_permission('partner.manage', null);
+  v_a public.partner_applications;
+  v_paused integer;
+begin
+  if p_business_id is null then
+    perform private.raise_error('VALIDATION_FAILED', 'business_id required');
+  end if;
+  if char_length(p_note) > 500 then
+    perform private.raise_error('VALIDATION_FAILED', 'note');
+  end if;
+  select * into v_a from public.partner_applications where business_id = p_business_id for update;
+  if not found then
+    perform private.raise_error('NOT_FOUND', 'partner_application');
+  end if;
+  if v_a.status <> 'approved' then
+    perform private.raise_error('CONFLICT', 'only approved partners can be revoked');
+  end if;
+
+  perform private.revoke_roles(v_a.applicant_id, 'partner');
+  perform private.set_business_active(v_a.business_id, false);
+  v_paused := private.pause_business_offers(v_a.business_id);
+
+  update public.partner_applications
+  set status = 'revoked', decided_by = v_uid, decided_at = now(), decision_note = nullif(btrim(p_note), '')
+  where business_id = v_a.business_id;
+  perform audit.write('partner.revoked', 'partner_application', v_a.business_id,
+    jsonb_build_object('status', v_a.status),
+    jsonb_build_object('status', 'revoked', 'note', nullif(btrim(p_note), ''), 'offers_paused', v_paused),
+    v_a.business_id);
+  return jsonb_build_object('business_id', v_a.business_id, 'status', 'revoked', 'offers_paused', v_paused);
+end;
+$$;
+
+-- For 30_staff api.get_my_staff: {partner_status, decision_note} of a partner business.
+create or replace function private.partner_brief(p_business_id uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(
+    (select jsonb_build_object('partner_status', a.status, 'decision_note', a.decision_note)
+     from public.partner_applications a where a.business_id = p_business_id),
+    jsonb_build_object('partner_status', null, 'decision_note', null));
 $$;

@@ -23,7 +23,6 @@ export const keys = {
   businesses: ["businesses"] as const,
   categories: ["offer-categories"] as const,
   offers: ["offers"] as const,
-  partnerOffers: ["partner-offers"] as const,
   history: ["history"] as const,
 };
 
@@ -32,6 +31,4 @@ export const useBusinesses = () => useQuery({ queryKey: keys.businesses, queryFn
 export const useCategories = () =>
   useQuery({ queryKey: keys.categories, queryFn: () => unwrap(api.offers.listCategories()) });
 export const useOffers = () => useQuery({ queryKey: keys.offers, queryFn: () => unwrap(api.offers.listEligible()) });
-export const usePartnerOffers = () =>
-  useQuery({ queryKey: keys.partnerOffers, queryFn: () => unwrap(api.partners.listOffers()) });
 export const useHistory = () => useQuery({ queryKey: keys.history, queryFn: () => unwrap(api.claims.listMine()) });

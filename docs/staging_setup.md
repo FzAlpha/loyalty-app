@@ -77,3 +77,11 @@ Values mirror `backend/supabase/config.toml`. If a setting can't be found or can
 - Send SMS hook with `private` schema in the dashboard: not yet tested.
 - `Sb-Forwarded-For` / IP forwarding: not yet tested. Without it, all customers share one sign-in rate-limit bucket.
 - Session revocation on hosted: not yet tested.
+
+## Partner businesses (2026-11-27)
+- Applied: `businesses.kind`, role `partner` + `partner.manage`, 55_partners rewrite (`partner_applications`), changed 20/30/50 functions, seeds. Old `partners`/`partner_offers` tables and RPCs dropped.
+- Edge Function `partner-apply` deployed (verify_jwt off; rate limited by IP).
+- pgTAP: all 8 test files pass on staging, including `25_partners`.
+- The old `partner-images` bucket is still there (0 objects) pending a decision.
+- Owner pause lock: migration `offers_owner_pause_lock` (column `offers.owner_paused` + new `api.set_offer_status`). `25_partners` (49) and `50_offers` (68) pass.
+

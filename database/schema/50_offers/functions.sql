@@ -249,6 +249,9 @@ set search_path = ''
 as $$
 declare
   v_o public.offers;
+  v_uid uuid;
+  v_owner boolean;
+  v_lock boolean;
 begin
   if p_status is null then
     perform private.raise_error('VALIDATION_FAILED', 'status');
@@ -257,21 +260,28 @@ begin
   if not found then
     perform private.raise_error('NOT_FOUND', 'offer');
   end if;
-  perform private.require_permission('offer.manage', v_o.business_id);
+  v_uid := private.require_permission('offer.manage', v_o.business_id);
   if v_o.status = 'archived' and p_status <> 'archived' then
     perform private.raise_error('CONFLICT', 'offer archived');
   end if;
-  update public.offers set status = p_status where id = v_o.id;
-  perform audit.write('offer.status_changed', 'offer', v_o.id, jsonb_build_object('status', v_o.status),
-    jsonb_build_object('status', p_status), v_o.business_id);
+  -- Owner = offer.manage for every business. An offer the owner paused can be republished only by
+  -- the owner (a partner can still archive it). The owner's own status changes set or clear the lock.
+  v_owner := private.user_can(v_uid, 'offer.manage', null);
+  if p_status = 'active' and v_o.owner_paused and not v_owner then
+    perform private.raise_error('CONFLICT', 'offer paused by owner');
+  end if;
+  v_lock := case when v_owner then p_status = 'paused' else v_o.owner_paused end;
+  update public.offers set status = p_status, owner_paused = v_lock where id = v_o.id;
+  perform audit.write('offer.status_changed', 'offer', v_o.id,
+    jsonb_build_object('status', v_o.status, 'owner_paused', v_o.owner_paused),
+    jsonb_build_object('status', p_status, 'owner_paused', v_lock), v_o.business_id);
   return jsonb_build_object('offer_id', v_o.id, 'status', p_status);
 end;
 $$;
 
 -- ---------------------------------------------------------------- storage (§10)
 -- Writes to the asset buckets need business.manage (business-assets) or offer.manage
--- (offer-banners) for the business named by the first path segment, or partner.manage held
--- globally (partner-images; the first segment is a partner id). Bucket names are settings.
+-- (offer-banners) for the business named by the first path segment. Bucket names are settings.
 -- Called from storage.objects policies, so it is in api and granted to authenticated.
 create or replace function api.storage_can_write(p_bucket_id text, p_name text)
 returns boolean
@@ -291,14 +301,9 @@ begin
   v_perm := case p_bucket_id
     when private.get_setting('storage.bucket.business_assets') #>> '{}' then 'business.manage'
     when private.get_setting('storage.bucket.offer_banners') #>> '{}' then 'offer.manage'
-    when private.get_setting('storage.bucket.partner_images') #>> '{}' then 'partner.manage'
   end;
   if v_perm is null or not private.session_is_live() then
     return false;
-  end if;
-  -- Partners are not business-owned, so partner.manage must be held for no business (owner).
-  if v_perm = 'partner.manage' then
-    return private.can(v_perm, null);
   end if;
   return private.can(v_perm, v_seg::uuid);
 end;
@@ -316,8 +321,7 @@ begin
   perform private.require_auth();
   return jsonb_build_object(
     'business_assets', private.get_setting('storage.bucket.business_assets') #>> '{}',
-    'offer_banners',   private.get_setting('storage.bucket.offer_banners') #>> '{}',
-    'partner_images',  private.get_setting('storage.bucket.partner_images') #>> '{}');
+    'offer_banners',   private.get_setting('storage.bucket.offer_banners') #>> '{}');
 end;
 $$;
 
@@ -376,7 +380,8 @@ begin
 end;
 $$;
 
--- Owner dashboard: every offer (all statuses), newest first. Optional business filter.
+-- Every offer (all statuses), newest first. No business: owner (offer.manage for all businesses).
+-- With a business: offer.manage for that business (a partner lists its own offers, 2026-11-27).
 create or replace function api.list_offers(p_business_id uuid default null)
 returns setof public.offers
 language plpgsql
@@ -385,9 +390,25 @@ security definer
 set search_path = ''
 as $$
 begin
-  perform private.require_permission('offer.manage', null);
+  perform private.require_permission('offer.manage', p_business_id);
   return query select * from public.offers o
     where p_business_id is null or o.business_id = p_business_id
     order by o.created_at desc, o.id;
+end;
+$$;
+
+-- 55_partners revoke: pause the business's active offers. Returns how many were paused.
+create or replace function private.pause_business_offers(p_business_id uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_n integer;
+begin
+  update public.offers set status = 'paused' where business_id = p_business_id and status = 'active';
+  get diagnostics v_n = row_count;
+  return v_n;
 end;
 $$;

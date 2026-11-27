@@ -448,6 +448,10 @@ verify_jwt = false
 [functions.auth-recover]
 verify_jwt = false
 
+# partner-apply: public partner sign-up; rate limited by IP inside.
+[functions.partner-apply]
+verify_jwt = false
+
 # staff-admin keeps the gateway JWT check and also verifies the caller and staff.manage inside.
 [functions.staff-admin]
 verify_jwt = true

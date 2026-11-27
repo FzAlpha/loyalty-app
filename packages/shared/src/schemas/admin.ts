@@ -1,9 +1,14 @@
 // Owner/admin operations: staff-admin Edge Function, business, settings (plan §6).
 import { z } from "zod";
-import { DateTime, HttpsUrl, Name, Password, PhoneE164, Uuid } from "./common.ts";
+import { DateTime, HttpsUrl, Name, PartnerStatus, Password, PhoneE164, Uuid } from "./common.ts";
 import type { Json } from "../contracts.ts";
 
+// Roles the owner can give in staff-admin. Partners sign up themselves (partner-apply).
 export const StaffRole = z.enum(["executive", "owner"]);
+// Role label returned by get_my_staff and list_staff (30_staff private.staff_role_label).
+export const StaffRoleLabel = z.enum(["executive", "owner", "partner"]);
+// Business kind (20_businesses): group companies are added by the owner, partners sign up.
+export const BusinessKind = z.enum(["group", "partner"]);
 export const CreateStaffInput = z.object({
   phone: PhoneE164, tempPassword: Password, displayName: Name, role: StaffRole, businessId: Uuid.nullable(),
 });
@@ -15,8 +20,10 @@ export const StaffAdminOutput = z.object({ user_id: Uuid });
 // api.get_my_staff (30_staff, F2): the signed-in staff member's own context, for admin-app routing only.
 // Every RPC still checks permissions server side.
 export const MyStaffOutput = z.object({
-  user_id: Uuid, display_name: z.string(), role: StaffRole, business_id: Uuid.nullable(),
+  user_id: Uuid, display_name: z.string(), role: StaffRoleLabel, business_id: Uuid.nullable(),
   business_name: z.string().nullable(), is_active: z.boolean(), must_change_password: z.boolean(),
+  // Partners only (55_partners private.partner_brief).
+  partner_status: PartnerStatus.nullable().optional(), decision_note: z.string().nullable().optional(),
 });
 
 // Keys accepted by api.update_business (20_businesses).
@@ -36,10 +43,10 @@ export const UpdateBusinessInput = z.object({ businessId: Uuid, patch: BusinessP
 // to_jsonb(businesses row): only the stable fields are checked; the rest pass through.
 export const UpdateBusinessOutput = z.object({ id: Uuid, slug: z.string(), name: z.string() }).passthrough();
 
-// api.list_businesses (F1): active group companies, public (anon allowed).
+// api.list_businesses (F1): active businesses (group and approved partners), public (anon allowed).
 export const GroupBusiness = z.object({
   id: Uuid, name: z.string(), category: z.string().nullable(), logo_path: z.string().nullable(),
-  brand_color: z.string().nullable(), website_url: z.string().nullable(),
+  brand_color: z.string().nullable(), website_url: z.string().nullable(), kind: BusinessKind,
 });
 export const ListBusinessesOutput = z.array(GroupBusiness);
 
@@ -57,7 +64,7 @@ export const DeleteBusinessOutput = z.object({ asset_bucket: z.string().min(1), 
 export const ManagedBusiness = z.object({
   id: Uuid, slug: z.string(), name: z.string(), category: z.string().nullable(), address: z.string().nullable(),
   phone: z.string().nullable(), website_url: z.string().nullable(), timezone: z.string().nullable(),
-  brand_color: z.string().nullable(), is_active: z.boolean(), logo_path: z.string().nullable(),
+  brand_color: z.string().nullable(), is_active: z.boolean(), logo_path: z.string().nullable(), kind: BusinessKind,
 }).passthrough();
 export const ListManagedBusinessesOutput = z.array(ManagedBusiness);
 
@@ -70,7 +77,7 @@ export const SetSettingOutput = z.object({
 
 // api.list_staff (owner): every staff account with its business.
 export const StaffMember = z.object({
-  user_id: Uuid, display_name: z.string(), role: StaffRole, business_id: Uuid.nullable(),
+  user_id: Uuid, display_name: z.string(), role: StaffRoleLabel, business_id: Uuid.nullable(),
   business_name: z.string().nullable(), phone_e164: z.string().nullable(), is_active: z.boolean(),
   must_change_password: z.boolean(), created_at: DateTime,
 });
@@ -78,5 +85,5 @@ export const ListStaffOutput = z.array(StaffMember);
 
 // api.get_storage_buckets: bucket names from app_settings (storage.bucket.*).
 export const StorageBuckets = z.object({
-  business_assets: z.string().min(1), offer_banners: z.string().min(1), partner_images: z.string().min(1),
+  business_assets: z.string().min(1), offer_banners: z.string().min(1),
 });

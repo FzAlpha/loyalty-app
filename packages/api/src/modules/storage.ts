@@ -1,7 +1,7 @@
-// Image files (business logos, offer banners, partner images) in Supabase Storage (plan §10).
+// Image files (business logos, offer banners) in Supabase Storage (plan §10).
 // Bucket names come from app_settings via api.get_storage_buckets. Writes are checked by the
 // storage.objects policies (api.storage_can_write): the first path segment must be a business id
-// the caller may manage (or a partner id for partner images).
+// the caller may manage.
 import { StorageBuckets, type Result } from "@rewards/shared";
 import { fail, fromThrown } from "../result.ts";
 import type { Ctx } from "../client.ts";

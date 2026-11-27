@@ -24,6 +24,7 @@ export const keys = {
   businesses: ["businesses"] as const,
   managedBusinesses: ["managed-businesses"] as const,
   today: (businessId: string) => ["today", businessId] as const,
+  offers: (businessId: string) => ["offers", businessId] as const,
 };
 
 // Staff context, used for routing only. The server checks permissions on every call.
@@ -36,6 +37,10 @@ export const useBusinesses = () =>
 // Owner: every business, active or not.
 export const useManagedBusinesses = () =>
   useQuery({ queryKey: keys.managedBusinesses, queryFn: () => unwrap(api.business.listManaged()) });
+
+// Partner: every offer of its own business, any status. The server checks offer.manage for it.
+export const useOffers = (businessId: string) =>
+  useQuery({ queryKey: keys.offers(businessId), queryFn: () => unwrap(api.offers.listAll({ businessId })) });
 
 // Pages of the caller's redemptions today. The page size is the server's (setting staff.today.page_max);
 // the next page starts before the oldest row shown. An empty page ends the list.

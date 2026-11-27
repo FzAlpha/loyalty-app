@@ -22,6 +22,7 @@ export const apiErrorOf = (e: unknown): ApiError | null => (e instanceof ApiCall
 
 export type Range = { businessId: string | null; from: string; to: string };
 export type GroupBy = "day" | "month" | "business" | "offer" | "executive";
+export type PartnerFilter = "pending" | "approved" | "rejected" | "revoked" | "all";
 export type AuditFilter = { action?: string; entityType?: string; businessId?: string; from?: string; to?: string };
 
 export const keys = {
@@ -31,6 +32,7 @@ export const keys = {
   offers: ["owner-offers"] as const,
   staffList: ["staff-list"] as const,
   buckets: ["storage-buckets"] as const,
+  partners: (status: PartnerFilter) => ["partner-applications", status] as const,
   summary: (r: Range) => ["report-summary", r] as const,
   redemptions: (r: Range, g: GroupBy) => ["report-redemptions", r, g] as const,
   signups: (from: string, to: string) => ["report-signups", from, to] as const,
@@ -49,6 +51,13 @@ export const useManagedBusinesses = () =>
 // Owner: every offer (any status) and every staff account.
 export const useOffers = () => useQuery({ queryKey: keys.offers, queryFn: () => unwrap(api.offers.listAll()) });
 export const useStaffList = () => useQuery({ queryKey: keys.staffList, queryFn: () => unwrap(api.staff.list()) });
+
+// Owner: partner applications, optionally by status.
+export const usePartnerApplications = (status: PartnerFilter) =>
+  useQuery({
+    queryKey: keys.partners(status),
+    queryFn: () => unwrap(api.partners.listApplications(status === "all" ? {} : { status })),
+  });
 
 // Storage bucket names (app_settings storage.bucket.*); they rarely change.
 export const useBuckets = () =>

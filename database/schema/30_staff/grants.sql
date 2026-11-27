@@ -17,3 +17,5 @@ revoke all on function api.get_my_staff() from public, anon;
 grant execute on function api.get_my_staff() to authenticated;
 revoke all on function api.list_staff() from public, anon;
 grant execute on function api.list_staff() to authenticated;
+revoke all on function private.create_partner_staff(uuid, uuid, text) from public, anon, authenticated;
+revoke all on function private.staff_role_label(uuid) from public, anon, authenticated;

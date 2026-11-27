@@ -13,7 +13,7 @@ export default function More() {
     <Screen>
       <PageHeader title={strings.more.title} />
       <View style={{ marginTop: 8 }}>
-        <MenuRow icon="airplane" label={strings.more.partners} hint={strings.more.partnersHint}
+        <MenuRow icon="storefront" label={strings.more.partners} hint={strings.more.partnersHint}
           onPress={() => router.push("/partners")} />
         {me.data && !me.data.card ? (
           <MenuRow icon="qr-code-outline" label={strings.more.linkCard} hint={strings.more.linkHint}

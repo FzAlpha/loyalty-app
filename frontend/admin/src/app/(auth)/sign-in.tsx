@@ -1,6 +1,8 @@
-// Staff sign-in: phone + password through Supabase Auth. Accounts are created by the owner (no self sign-up).
+// Staff sign-in: phone + password through Supabase Auth. Staff accounts are created by the owner;
+// partner businesses sign up themselves (partner-apply).
+import { router } from "expo-router";
 import { useState } from "react";
-import { Image, View } from "react-native";
+import { Image, Pressable, View } from "react-native";
 import { brand, Text } from "@rewards/ui";
 import { Button, ErrorBox, Field, Screen } from "../../components/ui";
 import { api } from "../../lib/api";
@@ -43,6 +45,9 @@ export default function SignIn() {
       <View style={{ marginTop: 8 }}>
         <Button label={strings.auth.signIn} onPress={submit} loading={busy} />
       </View>
+      <Pressable onPress={() => router.push("/partner-apply")} accessibilityRole="link" hitSlop={10} className="mt-6 items-center">
+        <Text className="text-gold text-base">{strings.auth.applyLink}</Text>
+      </Pressable>
     </Screen>
   );
 }
