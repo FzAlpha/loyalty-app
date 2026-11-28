@@ -14,7 +14,7 @@ os.environ.update(
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app.core import auth_api, db, errors  # noqa: E402
+from app.core import auth_api, db, errors, storage_api  # noqa: E402
 from app.core.errors import AppError  # noqa: E402
 from app.main import create_app  # noqa: E402
 
@@ -113,7 +113,9 @@ def fauth(monkeypatch) -> FakeAuth:
 
 
 @pytest.fixture
-def client(fdb, fauth) -> TestClient:
+def client(fdb, fauth, monkeypatch) -> TestClient:
+    # No network: Storage calls do nothing unless a test replaces them.
+    monkeypatch.setattr(storage_api, "remove_folder", lambda bucket, folder: 0)
     return TestClient(create_app())
 
 

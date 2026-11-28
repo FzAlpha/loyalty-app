@@ -64,7 +64,7 @@ export default function DeleteAccount() {
       </FadeContent>
 
       {doneMsg ? (
-        <View className="bg-surface rounded-xl p-4 border border-line mt-4" accessibilityLiveRegion="polite">
+        <View className="bg-surface rounded-2xl p-4 border border-lineSoft mt-4" accessibilityLiveRegion="polite">
           <Text className="text-text text-sm">{doneMsg}</Text>
         </View>
       ) : (

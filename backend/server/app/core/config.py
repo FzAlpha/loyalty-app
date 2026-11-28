@@ -35,6 +35,10 @@ class Settings(BaseSettings):
         return str(self.SUPABASE_URL).rstrip("/") + "/auth/v1"
 
     @property
+    def storage_url(self) -> str:
+        return str(self.SUPABASE_URL).rstrip("/") + "/storage/v1"
+
+    @property
     def allowed_origins(self) -> list[str]:
         return [s.strip() for s in self.CORS_ALLOWED_ORIGINS.split(",") if s.strip()]
 

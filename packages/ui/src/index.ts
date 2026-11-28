@@ -1,2 +1,2 @@
 export { brand, colors, fonts, gradients } from "./theme";
-export { Text } from "./Text";
+export { createText, Text, type FontFamilies } from "./Text";

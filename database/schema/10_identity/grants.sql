@@ -25,3 +25,13 @@ grant execute on function api.request_phone_release(text, uuid, text) to authent
 grant execute on function api.decide_phone_release(uuid, boolean, text) to authenticated;
 revoke all on function api.get_my_account() from public, anon;
 grant execute on function api.get_my_account() to authenticated;
+
+-- Profile photos (§10)
+revoke all on function private.avatar_bucket() from public, anon, authenticated;
+revoke all on function private.avatar_summary(text) from public, anon, authenticated;
+revoke all on function api.avatar_can_access(text, text) from public, anon;
+grant execute on function api.avatar_can_access(text, text) to authenticated;
+revoke all on function api.set_my_avatar(text) from public, anon;
+grant execute on function api.set_my_avatar(text) to authenticated;
+revoke all on function api.clear_my_avatar() from public, anon;
+grant execute on function api.clear_my_avatar() to authenticated;

@@ -63,13 +63,13 @@ export default function Card() {
   const pending = (me.data?.card?.status ?? pass?.card_status) === "pending";
 
   return (
-    <Screen>
+    <Screen tabBar>
       <PageHeader title={strings.card.title} subtitle={strings.card.subtitle} />
 
       {me.isPending ? <Loading /> : !hasCard ? (
-        <FadeContent className="bg-surface border border-line rounded-3xl p-6 mt-4 items-center">
-          <View className="rounded-full items-center justify-center bg-surface2 border border-line"
-            style={{ width: 72, height: 72 }}>
+        <FadeContent className="bg-surface border border-lineSoft rounded-3xl p-6 mt-4 items-center">
+          <View className="rounded-full items-center justify-center"
+            style={{ width: 76, height: 76, backgroundColor: colors.goldSoft }}>
             <Ionicons name="qr-code-outline" size={34} color={colors.gold} />
           </View>
           <Text className="text-muted text-sm text-center mt-4">{strings.card.noCard}</Text>
@@ -80,22 +80,25 @@ export default function Card() {
       ) : error ? (
         <ErrorBox message={errorMessage(error)} onRetry={load} />
       ) : !pass ? <Loading /> : (
-        <FadeContent style={{ alignItems: "center", marginTop: 12 }}>
-          {/* Gold frame around the white QR so it reads as part of the card. */}
-          <LinearGradient colors={gradients.gold} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={{ padding: 3, borderRadius: 24 }}>
-            <View style={{ backgroundColor: "#fff", padding: 18, borderRadius: 21 }}
-              accessible accessibilityLabel={`${strings.card.title} ${pass.card_number}`}>
-              <QRCode value={pass.qr_payload} size={220} color="#000" backgroundColor="#fff" />
-            </View>
+        <FadeContent style={{ marginTop: 8 }}>
+          {/* Gold-foil frame, dark panel, white QR: the pass reads as part of the member card. */}
+          <LinearGradient colors={gradients.goldFoil} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={{ padding: 2, borderRadius: 32 }}>
+            <LinearGradient colors={gradients.panel} style={{ borderRadius: 30, padding: 22, alignItems: "center" }}>
+              <Text className="text-gold text-xs font-bold" style={{ letterSpacing: 2.5 }}>{strings.brand.member}</Text>
+              <View style={{ backgroundColor: "#fff", padding: 16, borderRadius: 22, marginTop: 14 }}
+                accessible accessibilityLabel={`${strings.card.title} ${pass.card_number}`}>
+                <QRCode value={pass.qr_payload} size={216} color="#000" backgroundColor="#fff" />
+              </View>
+              <Text className="font-bold" style={{ color: colors.goldLight, fontSize: 20, letterSpacing: 3, marginTop: 18, fontVariant: ["tabular-nums"] }}>
+                {pass.card_number}
+              </Text>
+              <Text className="text-muted text-sm text-center mt-1">{strings.card.hint}</Text>
+            </LinearGradient>
           </LinearGradient>
-          <Text style={{ color: colors.goldLight, fontSize: 22, letterSpacing: 3, marginTop: 18, fontVariant: ["tabular-nums"] }}>
-            {pass.card_number}
-          </Text>
-          <Text className="text-muted text-sm text-center mt-2">{strings.card.hint}</Text>
-          <View className="flex-row items-center bg-surface border border-line rounded-full px-3 py-1.5 mt-3">
+          <View className="flex-row items-center self-center rounded-full px-4 py-2 mt-4" style={{ backgroundColor: colors.goldSoft }}>
             <Ionicons name="time-outline" size={14} color={colors.gold} />
-            <Text className="text-muted text-xs ml-1.5" accessibilityLiveRegion="polite">
+            <Text className="text-goldLight text-xs font-semibold ml-1.5" accessibilityLiveRegion="polite">
               {strings.card.expiresIn(left)}
             </Text>
           </View>
@@ -103,8 +106,8 @@ export default function Card() {
       )}
 
       {me.data && hasCard && (
-        <FadeContent index={1} className="bg-surface border border-line rounded-2xl p-4 mt-6">
-          <Text className="text-goldLight text-xs font-bold tracking-widest">{strings.card.status}</Text>
+        <FadeContent index={1} className="bg-surface border border-lineSoft rounded-3xl p-5 mt-6">
+          <Text className="text-gold text-xs font-bold" style={{ letterSpacing: 2 }}>{strings.card.status}</Text>
           <View className="flex-row items-center mt-2">
             <View style={{ width: 10, height: 10, borderRadius: 5,
               backgroundColor: pending ? colors.gold : me.data.card?.status === "active" ? colors.success : colors.danger }} />

@@ -8,7 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import QRCode from "react-native-qrcode-svg";
 import type { ApiError } from "@rewards/shared";
 import { OfferCard } from "../../components/OfferCard";
-import { ErrorBox, Loading, Muted, Screen } from "../../components/ui";
+import { ErrorBox, Loading, Muted, Screen, SCREEN_PAD, TAB_BAR_SPACE } from "../../components/ui";
 import { FadeContent } from "../../fx/FadeContent";
 import { StarBorder } from "../../fx/StarBorder";
 import { api } from "../../lib/api";
@@ -53,14 +53,16 @@ export default function Offers() {
   const header = (
     <>
       <PageHeader title={strings.offers.title} subtitle={strings.offers.subtitle} />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 12 }}>
+      {/* Pulled out of the list padding so the chips scroll to the screen edges instead of being cut off. */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -SCREEN_PAD }}
+        contentContainerStyle={{ gap: 8, paddingTop: 8, paddingBottom: 16, paddingHorizontal: SCREEN_PAD }}>
         {chips.map((c) => {
           const on = c.key === category;
           return (
             <Pressable key={c.key ?? "all"} onPress={() => setCategory(c.key)} accessibilityRole="button"
               accessibilityState={{ selected: on }}
-              className={`px-4 py-2 rounded-full border ${on ? "bg-gold border-gold" : "bg-surface border-line"}`}>
-              <Text className={on ? "text-onGold font-bold" : "text-text"}>{c.name}</Text>
+              className={`px-4 py-2.5 rounded-full border ${on ? "bg-gold border-gold" : "bg-surface border-lineSoft"}`}>
+              <Text className={on ? "text-onGold text-sm font-bold" : "text-text text-sm font-semibold"}>{c.name}</Text>
             </Pressable>
           );
         })}
@@ -88,19 +90,19 @@ export default function Offers() {
         maxToRenderPerBatch={6}
         windowSize={7}
         removeClippedSubviews
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingHorizontal: SCREEN_PAD, paddingBottom: TAB_BAR_SPACE }}
         showsVerticalScrollIndicator={false}
       />
 
       {/* Offer detail + claim */}
       <Modal visible={!!chosen} transparent animationType="slide" onRequestClose={() => { setSelected(null); setClaim(null); }}>
-        <View className="flex-1 justify-end" style={{ backgroundColor: "#000a" }}>
-          <View className="bg-bg rounded-t-3xl p-5 border-t border-gold">
-            <View className="bg-line rounded-full self-center mb-4" style={{ width: 44, height: 4 }} />
+        <View className="flex-1 justify-end" style={{ backgroundColor: "#000c" }}>
+          <View className="bg-surface rounded-t-[32px] px-6 pt-4 pb-6 border-t border-goldDark">
+            <View className="bg-line rounded-full self-center mb-5" style={{ width: 44, height: 4 }} />
             {chosen && !claim && (
               <>
-                <Text className="text-goldLight text-xs">{businessName(chosen.business_id)}</Text>
-                <Text className="text-text text-xl font-bold mt-1">{chosen.title}</Text>
+                <Text className="text-gold text-xs font-bold" style={{ letterSpacing: 1.5 }}>{(businessName(chosen.business_id) ?? "").toUpperCase()}</Text>
+                <Text className="text-text font-extrabold mt-1" style={{ fontSize: 24, lineHeight: 30 }}>{chosen.title}</Text>
                 {chosen.description ? <Text className="text-muted text-sm mt-2">{chosen.description}</Text> : null}
                 {chosen.terms ? <Text className="text-muted text-xs mt-3">{chosen.terms}</Text> : null}
                 {claimError && <ErrorBox message={errorMessage(claimError)} />}
@@ -111,11 +113,11 @@ export default function Offers() {
             )}
             {claim && (
               <View style={{ alignItems: "center" }}>
-                <Text className="text-text text-lg font-bold">{strings.offers.claimTitle}</Text>
+                <Text className="text-text text-xl font-extrabold">{strings.offers.claimTitle}</Text>
                 <Text className="text-goldLight text-sm mt-1">{claim.title}</Text>
-                <LinearGradient colors={gradients.gold} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={{ padding: 3, borderRadius: 22, marginTop: 16 }}>
-                  <View style={{ backgroundColor: "#fff", padding: 16, borderRadius: 19 }}
+                <LinearGradient colors={gradients.goldFoil} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={{ padding: 4, borderRadius: 26, marginTop: 18 }}>
+                  <View style={{ backgroundColor: "#fff", padding: 16, borderRadius: 22 }}
                     accessible accessibilityLabel={strings.offers.claimTitle}>
                     <QRCode value={claim.qr_payload} size={200} color="#000" backgroundColor="#fff" />
                   </View>
@@ -127,7 +129,7 @@ export default function Offers() {
               </View>
             )}
             <Pressable onPress={() => { setSelected(null); setClaim(null); }} accessibilityRole="button" className="py-4 items-center">
-              <Text className="text-gold">{strings.common.close}</Text>
+              <Text className="text-goldLight font-semibold">{strings.common.close}</Text>
             </Pressable>
           </View>
         </View>

@@ -15,6 +15,8 @@ create table public.profiles (
   date_of_birth date,
   membership_status public.membership_status not null default 'none',
   account_status public.account_status not null default 'active',
+  -- Profile photo: object name in the private avatar bucket (§10), always '<id>/<file>'.
+  avatar_path text check (char_length(avatar_path) <= 300),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

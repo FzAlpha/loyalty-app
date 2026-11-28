@@ -1,9 +1,8 @@
-// Brand pieces: the Chirag emblem in a gold-ringed badge, and a gold ornament divider.
+// Brand pieces: the Chirag emblem in a gold-foil ringed badge, a gold ornament divider, the page header.
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image, Pressable, View, type ViewStyle } from "react-native";
-import { ShinyText } from "../fx/ShinyText";
 import { Text } from "./Text";
 import { strings } from "../strings";
 import { brand, colors, gradients } from "../theme";
@@ -11,7 +10,7 @@ import { brand, colors, gradients } from "../theme";
 export function BrandBadge({ size = 56 }: { size?: number }) {
   const ring = Math.max(2, Math.round(size / 24));
   return (
-    <LinearGradient colors={gradients.gold} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+    <LinearGradient colors={gradients.goldFoil} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
       style={{ width: size, height: size, borderRadius: size / 2, padding: ring }}>
       <LinearGradient colors={gradients.dark} start={{ x: 0.2, y: 0 }} end={{ x: 0.8, y: 1 }}
         style={{ flex: 1, borderRadius: size / 2, alignItems: "center", justifyContent: "center" }}>
@@ -33,28 +32,25 @@ export function GoldDivider({ style }: { style?: ViewStyle }) {
   );
 }
 
-// Header used by every inner screen: soft gold glow, badge, shiny title, optional back button.
-export function PageHeader({ title, subtitle, back }: { title: string; subtitle?: string; back?: boolean }) {
+// Header used by every inner screen: gold eyebrow, large title, optional back button (the glow is in Screen).
+export function PageHeader({ title, subtitle, back, eyebrow = strings.brand.group }: {
+  title: string; subtitle?: string; back?: boolean; eyebrow?: string;
+}) {
   return (
-    <View style={{ marginBottom: 8 }}>
-      <LinearGradient colors={gradients.glow} pointerEvents="none"
-        style={{ position: "absolute", top: -96, left: -40, right: -40, height: 260 }} />
+    <View style={{ marginBottom: 12 }}>
       {back && (
         <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/home"))}
           accessibilityRole="button" accessibilityLabel={strings.common.back} hitSlop={10}
-          style={{ flexDirection: "row", alignItems: "center", marginBottom: 10, alignSelf: "flex-start" }}>
-          <Ionicons name="chevron-back" size={20} color={colors.gold} />
-          <Text className="text-gold">{strings.common.back}</Text>
+          className="bg-surface border border-lineSoft rounded-full items-center justify-center"
+          style={{ width: 40, height: 40, marginBottom: 16 }}>
+          <Ionicons name="chevron-back" size={20} color={colors.goldLight} />
         </Pressable>
       )}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <BrandBadge size={44} />
-        <View style={{ flex: 1 }}>
-          <ShinyText style={{ fontSize: 24 }} accessibilityRole="header">{title}</ShinyText>
-          {subtitle ? <Text className="text-muted text-sm">{subtitle}</Text> : null}
-        </View>
-      </View>
-      <GoldDivider style={{ marginTop: 14 }} />
+      <Text className="text-gold text-xs font-bold" style={{ letterSpacing: 2.5 }}>{eyebrow.toUpperCase()}</Text>
+      <Text accessibilityRole="header" className="text-text font-extrabold" style={{ fontSize: 30, lineHeight: 36, marginTop: 6 }}>
+        {title}
+      </Text>
+      {subtitle ? <Text className="text-muted text-sm" style={{ marginTop: 4 }}>{subtitle}</Text> : null}
     </View>
   );
 }

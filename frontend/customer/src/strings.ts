@@ -50,6 +50,11 @@ export const strings = {
     memberSince: (date: string) => `Member since ${date}`,
     noCard: "No card linked yet",
     noCompanies: "Group companies will appear here soon.",
+    showCard: "Show card",
+    quickOffers: "Offers",
+    quickPartners: "Partners",
+    statOffers: "Offers for you",
+    statRedeemed: "Redeemed",
   },
   card: {
     title: "MY DIGITAL CARD",
@@ -64,6 +69,8 @@ export const strings = {
     linkCta: "Link my card",
     pendingTitle: "Waiting for store approval",
     pendingBody: "Your card is linked. The store staff will check your ID and approve it.",
+    active: "Active",
+    pendingShort: "Pending",
   },
   link: {
     title: "Link your card",
@@ -117,6 +124,10 @@ export const strings = {
     changePassword: "Change password",
     deleteAccount: "Delete account",
     memberSince: (d: string) => `Member since ${d}`,
+    addPhoto: "Add photo",
+    changePhoto: "Change photo",
+    removePhoto: "Remove photo",
+    photoBusy: "Saving photo…",
   },
   password: {
     title: "Change password",

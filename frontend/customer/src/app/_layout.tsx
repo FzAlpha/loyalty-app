@@ -1,6 +1,9 @@
 import "../../global.css";
-// Import the weight by subpath so only this .ttf file is bundled.
-import { Delius_400Regular } from "@expo-google-fonts/delius/400Regular";
+// Import each weight by subpath so only these .ttf files are bundled.
+import { Manrope_400Regular } from "@expo-google-fonts/manrope/400Regular";
+import { Manrope_600SemiBold } from "@expo-google-fonts/manrope/600SemiBold";
+import { Manrope_700Bold } from "@expo-google-fonts/manrope/700Bold";
+import { Manrope_800ExtraBold } from "@expo-google-fonts/manrope/800ExtraBold";
 import { useFonts } from "expo-font";
 import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
 import { Stack } from "expo-router";
@@ -25,7 +28,12 @@ export default function RootLayout() {
   useSessionListener();
   const sessionReady = useSessionStore((s) => s.ready);
   // Keys are the family names used in theme.fonts. If loading fails, carry on with the system font.
-  const [fontsLoaded, fontError] = useFonts({ [fonts.regular]: Delius_400Regular });
+  const [fontsLoaded, fontError] = useFonts({
+    [fonts.regular]: Manrope_400Regular,
+    [fonts.semibold]: Manrope_600SemiBold,
+    [fonts.bold]: Manrope_700Bold,
+    [fonts.extrabold]: Manrope_800ExtraBold,
+  });
   const ready = sessionReady && (fontsLoaded || !!fontError);
 
   return (

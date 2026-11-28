@@ -1,2 +1,5 @@
-// App-wide Text lives in packages/ui (shared with the admin app).
-export { Text } from "@rewards/ui";
+// Customer Text: the shared Text logic with the customer typeface (Manrope weights).
+import { createText } from "@rewards/ui";
+import { fonts } from "../theme";
+
+export const Text = createText(fonts);

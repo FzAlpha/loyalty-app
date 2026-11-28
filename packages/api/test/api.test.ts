@@ -257,7 +257,8 @@ const cases: Record<string, Case> = {
       must_change_password: false, partner_status: "pending", decision_note: null } },
   "accounts.me": { call: (a) => a.accounts.me(), kind: "rpc", name: "get_my_account", args: {},
     reply: { full_name: "A", phone_e164: "+919800000001", date_of_birth: null, membership_status: "active",
-      account_status: "active", identity_checked_at: null, member_since: TS, card: null } },
+      account_status: "active", identity_checked_at: null, member_since: TS, card: null,
+      avatar: { bucket: "customer-avatars", path: null, url_ttl_seconds: 3600, max_bytes: 1048576 } } },
 };
 
 describe("business.remove (row delete, then Storage clean-up)", () => {
@@ -294,6 +295,55 @@ describe("business.remove (row delete, then Storage clean-up)", () => {
     const { client, calls } = fake({ rpc: () => pgError(409, "PT409", "BUSINESS_IN_USE") });
     expect(await createApi(client).business.remove({ businessId: U2 })).toEqual({ error: { code: "BUSINESS_IN_USE" } });
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe("accounts profile photo", () => {
+  const avatar = { bucket: "customer-avatars", path: null, url_ttl_seconds: 3600, max_bytes: 10 };
+  const saved = (path: string | null, previous: string | null) =>
+    ok({ avatar: { ...avatar, path }, previous_path: previous });
+  it("uploads into the caller's folder, records it, then removes the previous file", async () => {
+    let uploaded = "";
+    const { client, calls } = fake({
+      userId: U1,
+      storage: { upload: (p) => { uploaded = p; return { data: { path: p }, error: null }; } },
+      rpc: (_n, a) => saved((a as { p_path: string }).p_path, `${U1}/old.jpg`),
+    });
+    const r = await createApi(client).accounts.setAvatar(avatar, new Blob(["x"], { type: "image/jpeg" }), "image/jpeg");
+    expect(uploaded).toMatch(new RegExp(`^${U1}/[a-z0-9]{1,64}\.jpg$`));
+    expect(r).toEqual({ data: { ...avatar, path: uploaded } });
+    expect(calls.find((c) => c.kind === "rpc")).toMatchObject({ name: "set_my_avatar", args: { p_path: uploaded } });
+    expect(calls.at(-1)).toEqual({ kind: "storage", name: "remove", args: { bucket: "customer-avatars", paths: [`${U1}/old.jpg`] } });
+  });
+  it("refuses a file over the size limit or of another type before uploading", async () => {
+    const { client, calls } = fake({ userId: U1 });
+    const api = createApi(client);
+    expect((await api.accounts.setAvatar(avatar, new Blob(["x".repeat(11)]), "image/jpeg")).error?.code).toBe("VALIDATION_FAILED");
+    expect((await api.accounts.setAvatar(avatar, new Blob(["x"]), "image/gif")).error?.code).toBe("VALIDATION_FAILED");
+    expect(calls).toEqual([]);
+  });
+  it("removes the new file again when the server refuses it", async () => {
+    const { client, calls } = fake({ userId: U1, rpc: () => pgError(409, "PT409", "ACCOUNT_INACTIVE") });
+    const r = await createApi(client).accounts.setAvatar(avatar, new Blob(["x"]), "image/png");
+    expect(r).toEqual({ error: { code: "ACCOUNT_INACTIVE" } });
+    const up = calls.find((c) => c.name === "upload")!.args as { path: string };
+    expect(calls.at(-1)).toEqual({ kind: "storage", name: "remove", args: { bucket: "customer-avatars", paths: [up.path] } });
+  });
+  it("needs a session", async () => {
+    expect((await createApi(fake().client).accounts.setAvatar(avatar, new Blob(["x"]), "image/png")).error?.code)
+      .toBe("UNAUTHENTICATED");
+  });
+  it("clears the photo and removes the file", async () => {
+    const { client, calls } = fake({ rpc: () => saved(null, `${U1}/a.jpg`) });
+    expect(await createApi(client).accounts.removeAvatar()).toEqual({ data: avatar });
+    expect(calls[0]).toMatchObject({ kind: "rpc", name: "clear_my_avatar" });
+    expect(calls.at(-1)).toMatchObject({ name: "remove", args: { paths: [`${U1}/a.jpg`] } });
+  });
+  it("signs a URL with the lifetime from settings, null without a photo", async () => {
+    const api = createApi(fake().client);
+    expect(await api.accounts.avatarUrl(avatar)).toEqual({ data: null });
+    expect(await api.accounts.avatarUrl({ ...avatar, path: `${U1}/a.jpg` }))
+      .toEqual({ data: `https://fake/sign/customer-avatars/${U1}/a.jpg?ttl=3600` });
   });
 });
 
@@ -335,7 +385,7 @@ describe("operation wiring", () => {
     const all = Object.entries(api).flatMap(([m, fns]) => Object.keys(fns).map((f) => `${m}.${f}`));
     const covered = new Set([...Object.keys(cases), "auth.register", "auth.signIn", "auth.changePassword",
       "auth.signOut", "cards.link", "offers.listEligible", "business.remove",
-      "storage.upload", "storage.publicUrl"]);
+      "storage.upload", "storage.publicUrl", "accounts.setAvatar", "accounts.removeAvatar", "accounts.avatarUrl"]);
     expect(all.filter((n) => !covered.has(n))).toEqual([]);
   });
 });

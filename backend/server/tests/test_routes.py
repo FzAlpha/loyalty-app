@@ -205,6 +205,31 @@ def test_jobs_process(client, fdb, fauth):
     assert r.json()["data"]["completed"] == 1 and fauth.calls[-1] == ("delete_user", (UID2, True))
 
 
+def test_jobs_removes_avatars(client, fdb, fauth, monkeypatch):
+    from app.core import storage_api
+    removed = []
+    monkeypatch.setattr(storage_api, "remove_folder", lambda b, f: removed.append((b, f)) or 1)
+    fdb.on("svc_get_setting", lambda a: {"jobs.process_deletions.batch_size": 5,
+                                         "storage.bucket.customer_avatars": "customer-avatars"}[a["p_key"]])
+    fdb.on("svc_claim_due_deletions", lambda a: [{"user_id": UID2, "request_id": BIZ}])
+    fdb.on("svc_complete_deletion", lambda a: None)
+    r = fn(client, "jobs-runner", {"job": "process_deletions"}, {"x-jobs-secret": "x" * 40})
+    assert r.status_code == 200, r.text
+    assert removed == [("customer-avatars", UID2)]
+
+
+def test_jobs_avatar_failure_still_completes(client, fdb, fauth, monkeypatch):
+    from app.core import storage_api
+
+    def boom(b, f):
+        raise storage_api.StorageApiError(500)
+    monkeypatch.setattr(storage_api, "remove_folder", boom)
+    fdb.on("svc_claim_due_deletions", lambda a: [{"user_id": UID2, "request_id": BIZ}])
+    fdb.on("svc_complete_deletion", lambda a: None)
+    r = fn(client, "jobs-runner", {"job": "process_deletions"}, {"x-jobs-secret": "x" * 40})
+    assert r.status_code == 200 and r.json()["data"]["completed"] == 1
+
+
 # --- robustness ------------------------------------------------------------------------------
 
 def _req(headers: dict[str, str], host: str = "testclient"):

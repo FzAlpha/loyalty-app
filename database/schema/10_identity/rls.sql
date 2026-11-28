@@ -28,3 +28,25 @@ create policy phone_release_select_requester on public.phone_release_requests fo
   using (api.has_permission('customer.release_phone.request', requested_business_id));
 create policy phone_release_select_approver on public.phone_release_requests for select to authenticated
   using ((select api.has_permission('customer.release_phone.approve', null)));
+
+-- §10 profile photos: private bucket (created by database/seed/reference/storage_buckets.sql).
+-- A customer reads and writes only their own folder; there is no public read.
+do $$
+begin
+  if to_regclass('storage.objects') is null then
+    raise exception 'storage.objects missing: Supabase Storage schema is required';
+  end if;
+  drop policy if exists rewards_avatars_insert on storage.objects;
+  drop policy if exists rewards_avatars_update on storage.objects;
+  drop policy if exists rewards_avatars_delete on storage.objects;
+  drop policy if exists rewards_avatars_select on storage.objects;
+  create policy rewards_avatars_insert on storage.objects for insert to authenticated
+    with check (api.avatar_can_access(bucket_id, name));
+  create policy rewards_avatars_update on storage.objects for update to authenticated
+    using (api.avatar_can_access(bucket_id, name)) with check (api.avatar_can_access(bucket_id, name));
+  create policy rewards_avatars_delete on storage.objects for delete to authenticated
+    using (api.avatar_can_access(bucket_id, name));
+  create policy rewards_avatars_select on storage.objects for select to authenticated
+    using (api.avatar_can_access(bucket_id, name));
+end;
+$$;

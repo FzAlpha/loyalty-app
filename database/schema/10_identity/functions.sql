@@ -455,7 +455,7 @@ set search_path = ''
 as $$
 begin
   update public.profiles
-  set full_name = '', phone_e164 = null, date_of_birth = null, account_status = p_status
+  set full_name = '', phone_e164 = null, date_of_birth = null, avatar_path = null, account_status = p_status
   where id = p_user_id;
   update auth.users set raw_user_meta_data = '{}'::jsonb where id = p_user_id;
   perform private.release_auth_phone(p_user_id);
@@ -527,6 +527,126 @@ begin
     'account_status', v_p.account_status,
     'identity_checked_at', v_p.identity_checked_at,
     'member_since', v_p.created_at,
-    'card', private.customer_card_summary(v_uid));
+    'card', private.customer_card_summary(v_uid),
+    'avatar', private.avatar_summary(v_p.avatar_path));
+end;
+$$;
+
+-- ---------------------------------------------------------------- profile photo (§10)
+-- Photos live in a private bucket (name from settings) at '<user id>/<file>'. The app uploads with
+-- the Storage API (policies in rls.sql use api.avatar_can_access), records the path here, and shows
+-- it through a short-lived signed URL.
+create or replace function private.avatar_bucket()
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select private.get_setting('storage.bucket.customer_avatars') #>> '{}';
+$$;
+
+-- What the app needs to upload and show the photo: bucket, current path (null = none), signed URL
+-- lifetime and size limit.
+create or replace function private.avatar_summary(p_path text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'bucket', private.avatar_bucket(),
+    'path', p_path,
+    'url_ttl_seconds', (private.get_setting('storage.avatar_url_ttl_seconds'))::integer,
+    'max_bytes', (private.get_setting('storage.avatar_max_file_bytes'))::bigint);
+$$;
+
+-- Storage policy check: a signed-in customer with a live session and an active account may read and
+-- write only '<own id>/<name>.<jpg|jpeg|png|webp>' in the avatar bucket.
+create or replace function api.avatar_can_access(p_bucket_id text, p_name text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null or p_bucket_id is distinct from private.avatar_bucket() then
+    return false;
+  end if;
+  if coalesce(p_name, '') !~ ('^' || v_uid::text || '/[A-Za-z0-9_-]{1,64}\.(jpg|jpeg|png|webp)$') then
+    return false;
+  end if;
+  return private.session_is_live()
+     and exists (select 1 from public.profiles where id = v_uid and account_status = 'active');
+end;
+$$;
+
+-- Records an uploaded photo. The object must already exist in the caller's folder. Returns the new
+-- avatar summary and the previous path, which the app then removes from Storage.
+create or replace function api.set_my_avatar(p_path text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := private.require_auth();
+  v_old text;
+  v_status public.account_status;
+begin
+  if not private.session_is_live() then
+    perform private.raise_error('UNAUTHENTICATED');
+  end if;
+  select avatar_path, account_status into v_old, v_status
+  from public.profiles where id = v_uid for update;
+  if not found then
+    perform private.raise_error('NOT_FOUND', 'profile');
+  end if;
+  if v_status is distinct from 'active' then
+    perform private.raise_error('ACCOUNT_INACTIVE');
+  end if;
+  if not api.avatar_can_access(private.avatar_bucket(), p_path) then
+    perform private.raise_error('VALIDATION_FAILED', 'avatar path');
+  end if;
+  if not exists (select 1 from storage.objects o
+                 where o.bucket_id = private.avatar_bucket() and o.name = p_path) then
+    perform private.raise_error('NOT_FOUND', 'avatar');
+  end if;
+  update public.profiles set avatar_path = p_path where id = v_uid;
+  perform audit.write('profile.avatar_set', 'profile', v_uid,
+    jsonb_build_object('avatar_path', v_old), jsonb_build_object('avatar_path', p_path));
+  return jsonb_build_object('avatar', private.avatar_summary(p_path),
+    'previous_path', case when v_old is distinct from p_path then v_old end);
+end;
+$$;
+
+-- Removes the photo from the profile. Returns the previous path for the app to delete.
+create or replace function api.clear_my_avatar()
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := private.require_auth();
+  v_old text;
+begin
+  if not private.session_is_live() then
+    perform private.raise_error('UNAUTHENTICATED');
+  end if;
+  select avatar_path into v_old from public.profiles where id = v_uid for update;
+  if not found then
+    perform private.raise_error('NOT_FOUND', 'profile');
+  end if;
+  if v_old is not null then
+    update public.profiles set avatar_path = null where id = v_uid;
+    perform audit.write('profile.avatar_cleared', 'profile', v_uid,
+      jsonb_build_object('avatar_path', v_old), jsonb_build_object('avatar_path', null));
+  end if;
+  return jsonb_build_object('avatar', private.avatar_summary(null), 'previous_path', v_old);
 end;
 $$;

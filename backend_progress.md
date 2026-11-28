@@ -82,6 +82,8 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - 2026-11-21: Hidden-email identity not needed
 - 2026-11-21: Repo github.com/FzAlpha/loyalty-app; spec PDF kept out of git
 - 2026-11-25: Customer app font: Delius (free OFL) instead of the paid Fruitygreen
+- 2026-11-28: Profile photos approved: private customer-avatars bucket, signed URLs, own folder only (plan §10)
+- 2026-11-28: Customer app redesign: black + gold "luxury" look, Manrope font (replaces Delius in the customer app; admin keeps Delius)
 
 ## M1 Foundation
 - [x] Git repo + GitHub remote (FzAlpha/loyalty-app)
@@ -183,7 +185,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
     - [~] Web bundle verified (sign-in renders); signed-in screens untested — no staging test account/data
     - [x] Demo seed database/seed/dev/demo.sql; part 1 (4 businesses, 6 offers, 2 partner offers) on staging
     - [x] Demo customer activated on staging (part 2): card GR-000001, membership active
-    - [!] Web preview sign-up blocked by CORS — staging `CORS_ALLOWED_ORIGINS` unset (by design); phone used instead
+    - [x] Web preview sign-up unblocked: staging CORS_ALLOWED_ORIGINS set to localhost:8081
     - [x] Native bundle fix: Metro resolves Node-only `ws` (realtime-js fallback) to empty on native
     - [x] App font: Delius (OFL; single weight, bold is OS-thickened); Fruitygreen is paid Linotype, not bundled
     - [x] Brand polish: emblem cut-out in gold-ringed badge (home + auth), gold divider, top glow, section accents
@@ -251,6 +253,20 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [x] Admin: camera off when scan screen not visible
 - [x] Jest tests (customer 12, admin 9), run in CI; custom resolver fixes pnpm path bug on Linux
 - [ ] Release build smoke test on a real low-end Android phone (no Android SDK here)
+
+## Customer app redesign (feat/customer-redesign)
+- [x] Manrope font, luxury colours (src/theme/luxury.json), weight-aware shared Text
+- [x] New components: floating tab bar, foil card, Avatar, menu groups, restyled fields and buttons
+- [x] Screens restyled: home, offers, card, account, more, auth, member screens
+- [x] Web fix: Tailwind darkMode "class" (NativeWind media-mode start-up error)
+- [x] Jest 12/12, tsc clean (customer, admin, dashboard); sign-in and sign-up checked on web
+- [ ] Signed-in screens checked on web / device
+- [x] Profile photo upload: private bucket, set/clear RPCs, app pick+crop+upload, signed URLs; cleanup on deletion
+- [ ] Profile photos: pgTAP 11_avatars + jobs-runner TS unverified locally (CI)
+- [x] Profile photos: schema + bucket applied to staging (migration customer_profile_photos)
+- [x] Staging CORS_ALLOWED_ORIGINS = http://localhost:8081 (web sign-up verified)
+- [x] Profile photos: upload/replace/remove verified on web preview against staging (crop 512, old file deleted, audited)
+- [x] Customer UI: one full-width glow in Screen (no boxed glows, no sideways scroll); Offers chips scroll edge to edge
 
 ## Open questions (§16.2)
 - [ ] Sb-Forwarded-For retest with IP Address Forwarding on

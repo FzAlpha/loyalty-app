@@ -46,7 +46,7 @@ export default function ChangePassword() {
           secureTextEntry autoComplete="new-password" textContentType="newPassword" />
         {error && <ErrorBox message={error} />}
         {saved && (
-          <View className="bg-surface rounded-xl p-4 border border-line my-2" accessibilityLiveRegion="polite">
+          <View className="bg-surface rounded-2xl p-4 border border-lineSoft my-2" accessibilityLiveRegion="polite">
             <Text className="text-success text-sm">{strings.password.saved}</Text>
           </View>
         )}

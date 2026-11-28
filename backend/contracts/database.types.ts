@@ -14,8 +14,14 @@ export type Database = {
             "approve_card":
 { Args: { "p_business_id": string,"p_card_id": string,"p_evidence": (Database["public"]['Enums']["identity_evidence"])[],"p_note"?: string }; Returns: Json
                            },
+"avatar_can_access":
+{ Args: { "p_bucket_id": string,"p_name": string }; Returns: boolean
+                           },
 "block_card":
 { Args: { "p_business_id": string,"p_card_id": string,"p_reason": string }; Returns: Json
+                           },
+"clear_my_avatar":
+{ Args: Record<PropertyKey, never>; Returns: Json
                            },
 "create_business":
 { Args: { "p_business": Json }; Returns: Json
@@ -169,6 +175,9 @@ export type Database = {
                            },
 "scan_card":
 { Args: { "p_business_id": string,"p_qr_payload": string }; Returns: Json
+                           },
+"set_my_avatar":
+{ Args: { "p_path": string }; Returns: Json
                            },
 "set_offer_status":
 { Args: { "p_offer_id": string,"p_status": Database["public"]['Enums']["offer_status"] }; Returns: Json
@@ -727,14 +736,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "account_status": Database["public"]['Enums']["account_status"],"created_at": string,"date_of_birth": string | null,"full_name": string,"id": string,"identity_checked_at": string | null,"membership_status": Database["public"]['Enums']["membership_status"],"phone_e164": string | null,"updated_at": string
+                    "account_status": Database["public"]['Enums']["account_status"],"avatar_path": string | null,"created_at": string,"date_of_birth": string | null,"full_name": string,"id": string,"identity_checked_at": string | null,"membership_status": Database["public"]['Enums']["membership_status"],"phone_e164": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "account_status"?: Database["public"]['Enums']["account_status"],"created_at"?: string,"date_of_birth"?: string | null,"full_name"?: string,"id": string,"identity_checked_at"?: string | null,"membership_status"?: Database["public"]['Enums']["membership_status"],"phone_e164"?: string | null,"updated_at"?: string
+                    "account_status"?: Database["public"]['Enums']["account_status"],"avatar_path"?: string | null,"created_at"?: string,"date_of_birth"?: string | null,"full_name"?: string,"id": string,"identity_checked_at"?: string | null,"membership_status"?: Database["public"]['Enums']["membership_status"],"phone_e164"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "account_status"?: Database["public"]['Enums']["account_status"],"created_at"?: string,"date_of_birth"?: string | null,"full_name"?: string,"id"?: string,"identity_checked_at"?: string | null,"membership_status"?: Database["public"]['Enums']["membership_status"],"phone_e164"?: string | null,"updated_at"?: string
+                    "account_status"?: Database["public"]['Enums']["account_status"],"avatar_path"?: string | null,"created_at"?: string,"date_of_birth"?: string | null,"full_name"?: string,"id"?: string,"identity_checked_at"?: string | null,"membership_status"?: Database["public"]['Enums']["membership_status"],"phone_e164"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     

@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from .core import auth_api, db, errors
+from .core import auth_api, db, errors, storage_api
 from .core.config import settings
 from .core.http import cors_headers, error_response
 from .routes import (account_deletion, auth_recover, auth_register, auth_sign_in, card_batches, jobs_runner,
@@ -30,6 +30,7 @@ async def lifespan(_app: FastAPI):
     yield
     db.close_pool()
     auth_api.close()
+    storage_api.close()
 
 
 def create_app() -> FastAPI:

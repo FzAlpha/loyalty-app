@@ -23,7 +23,7 @@ function Panel({ icon, title, body, children }: {
   icon: "camera-outline" | "checkmark-circle" | "phone-portrait-outline"; title: string; body: string; children?: React.ReactNode;
 }) {
   return (
-    <FadeContent className="bg-surface border border-line rounded-3xl p-6 mt-4 items-center">
+    <FadeContent className="bg-surface border border-lineSoft rounded-3xl p-6 mt-4 items-center">
       <Ionicons name={icon} size={44} color={icon === "checkmark-circle" ? colors.success : colors.gold} />
       <Text className="text-text text-lg font-bold mt-3 text-center">{title}</Text>
       <Text className="text-muted text-sm mt-2 text-center">{body}</Text>

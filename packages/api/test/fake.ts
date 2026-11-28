@@ -9,6 +9,7 @@ type AuthRes = { data?: unknown; error: unknown };
 export function fake(opts: {
   rpc?: (name: string, args: unknown) => PgRes | Promise<PgRes>;
   fn?: (name: string, body: unknown) => FnRes | Promise<FnRes>;
+  userId?: string; // signed-in user for auth.getSession()
   auth?: Partial<Record<"setSession" | "updateUser" | "signOut", (a: unknown) => AuthRes>>;
   // Storage: list(dir) returns the folder's items (folders have id null); remove(paths) may fail.
   storage?: { list?: (dir: string, offset: number) => { data: unknown[] | null; error: unknown };
@@ -50,9 +51,14 @@ export function fake(opts: {
           return opts.storage?.upload?.(path) ?? { data: { path }, error: null };
         },
         getPublicUrl: (path: string) => ({ data: { publicUrl: `https://fake/${bucket}/${path}` } }),
+        createSignedUrl: async (path: string, expiresIn: number) => {
+          calls.push({ kind: "storage", name: "createSignedUrl", args: { bucket, path, expiresIn } });
+          return { data: { signedUrl: `https://fake/sign/${bucket}/${path}?ttl=${expiresIn}` }, error: null };
+        },
       }),
     },
-    auth: { setSession: authCall("setSession"), updateUser: authCall("updateUser"), signOut: authCall("signOut") },
+    auth: { setSession: authCall("setSession"), updateUser: authCall("updateUser"), signOut: authCall("signOut"),
+      getSession: async () => ({ data: { session: opts.userId ? { user: { id: opts.userId } } : null }, error: null }) },
   };
   return { calls, client: client as unknown as Client };
 }
