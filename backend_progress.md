@@ -249,7 +249,7 @@ Plan: BACKEND_PLAN.md (section numbers in brackets)
 - [x] Android release: R8 minify + resource shrinking (expo-build-properties, both apps)
 - [x] Low-end: shimmer paused off-screen / reduced motion, list animations capped, offers list virtualized, memoized cards, longer cache for reference lists
 - [x] Admin: camera off when scan screen not visible
-- [x] Jest tests (customer 7, admin 4), run in CI via pnpm -r test
+- [x] Jest tests (customer 12, admin 9), run in CI; custom resolver fixes pnpm path bug on Linux
 - [ ] Release build smoke test on a real low-end Android phone (no Android SDK here)
 
 ## Open questions (§16.2)
