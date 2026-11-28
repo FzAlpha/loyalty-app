@@ -57,7 +57,7 @@
   },
   "jest": {
     "preset": "jest-expo",
-    "resolver": "react-native-reanimated/jest/resolver",
+    "resolver": "<rootDir>/jest.resolver.js",
     "testMatch": [
       "<rootDir>/src/**/*.test.ts?(x)"
     ],
